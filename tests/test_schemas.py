@@ -265,17 +265,45 @@ def test_evaluation_response_json_shape(response_data):
     assert list(EvaluationResponse.model_fields) == list(response_data)
 
 
-@pytest.mark.parametrize("review_required", [False, None, 0, "true"])
-def test_human_review_must_be_true(response_data, review_required):
+@pytest.mark.parametrize("json_input", [False, True], ids=["python", "json"])
+def test_human_review_true_round_trip(response_data, json_input):
+    response = (
+        EvaluationResponse.model_validate_json(json.dumps(response_data))
+        if json_input
+        else EvaluationResponse.model_validate(response_data)
+    )
+    assert response.human_review_required is True
+    serialized = response.model_dump_json()
+    assert json.loads(serialized) == response_data
+    assert json.loads(serialized)["human_review_required"] is True
+    assert (
+        EvaluationResponse.model_validate_json(serialized).human_review_required is True
+    )
+
+
+@pytest.mark.parametrize("json_input", [False, True], ids=["python", "json"])
+@pytest.mark.parametrize(
+    "review_required", [False, None, 0, 1, 0.0, 1.0, "true", "false"]
+)
+def test_human_review_must_be_true(response_data, review_required, json_input):
     response_data["human_review_required"] = review_required
-    with pytest.raises(ValidationError):
-        EvaluationResponse.model_validate(response_data)
+    with pytest.raises(ValidationError) as exc_info:
+        if json_input:
+            EvaluationResponse.model_validate_json(json.dumps(response_data))
+        else:
+            EvaluationResponse.model_validate(response_data)
+    assert exc_info.value.errors()[0]["loc"] == ("human_review_required",)
 
 
-def test_human_review_field_must_be_present(response_data):
+@pytest.mark.parametrize("json_input", [False, True], ids=["python", "json"])
+def test_human_review_field_must_be_present(response_data, json_input):
     del response_data["human_review_required"]
-    with pytest.raises(ValidationError):
-        EvaluationResponse.model_validate(response_data)
+    with pytest.raises(ValidationError) as exc_info:
+        if json_input:
+            EvaluationResponse.model_validate_json(json.dumps(response_data))
+        else:
+            EvaluationResponse.model_validate(response_data)
+    assert exc_info.value.errors()[0]["loc"] == ("human_review_required",)
 
 
 def test_criterion_order_and_duplicates_are_preserved(request_data, response_data):

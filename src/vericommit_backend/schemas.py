@@ -90,6 +90,14 @@ class EvaluationResponse(ContractModel):
     limitations: list[str]
     human_review_required: Literal[True]
 
+    @field_validator("human_review_required", mode="before")
+    @classmethod
+    def strict_human_review_required(cls, value: object) -> bool:
+        # Literal[True] alone also accepts numeric values equal to True.
+        if value is not True:
+            raise ValueError("must be the boolean true")
+        return value
+
 
 class ErrorDetail(ContractModel):
     # The documented error codes are suggested, not an approved closed enum (D8).
