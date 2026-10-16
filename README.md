@@ -45,7 +45,8 @@ schema is at `/openapi.json`.
 
 `src/vericommit_backend/schemas.py` models the JSON request, response, and error
 shapes in `docs/API_CONTRACT.md`. The endpoint reuses these models unchanged.
-No evidence provider, funding-agreement storage, or AI evaluator is implemented.
+The internal sample provider is implemented; no live GitHub retrieval,
+funding-agreement storage, or AI evaluator is implemented.
 `repository_url` remains required and validated as a GitHub repository URL for
 both `github` and `sample`; sample mode
 does not imply live retrieval. Model validation cannot establish that an evidence
@@ -79,7 +80,7 @@ Until the real service is integrated, **valid requests return HTTP 502**, with:
 }
 ```
 
-No successful findings, evidence retrieval, AI calls, or fallback are fabricated.
+No successful findings, live evidence retrieval, AI calls, or fallback are fabricated.
 The health endpoint still succeeds because it reports process liveness only.
 
 Invalid JSON, missing/null/wrong-type fields, blank required strings, empty or
@@ -91,6 +92,55 @@ failures never invoke `evaluate`. Responses do not echo submitted values or
 framework validation details. OpenAPI documents HTTP 400 instead of FastAPI's
 default 422. Provider-specific errors/timeouts and full BE-10 safeguards remain
 future work.
+
+## Internal evidence
+
+`evidence/models.py` defines strict, immutable internal records separately from the
+public schemas. Each record carries a stable `evidence_id`, actual `source`,
+`source_id`, evidence kind, meaningful title, optional source URL/content, and
+optional repository/commit/PR/release/author metadata. Missing metadata stays null;
+URLs are validated syntactically and preserved, not fetched or proven authentic.
+
+`evidence/normalization.py` provides pure adapters for GitHub-shaped commit,
+pull-request, and release payloads. IDs are namespaced by source, repository, kind,
+and the supplied upstream identifier. These adapters do not retrieve GitHub data.
+
+`NormalizedEvidence.to_public_reference()` returns the existing `EvidenceReference`
+with only `type`, `title`, and present `url`. The title carries the stable internal
+reference; samples require a `Sample: ` label, including when their URL is null.
+Missing genuine URLs remain null, with source-qualified stable references retained
+in titles rather than fabricated links. No URLs, authors, timestamps, or findings are
+invented. `EvidenceProvider.retrieve(request)` is the async boundary for sample and
+future live providers, returning an `EvidenceCollection` with source and limitations.
+
+### Deterministic sample provider
+
+`services/sample_evidence.py` implements `EvidenceProvider.retrieve(request)` using
+the packaged `fixtures/registration-demo-v1.json`. Every request explicitly using
+`evidence_source: "sample"` selects this one fixed fixture, independent of project
+name, repository URL, criterion wording, working directory, or time. No request
+field or fixture-selection endpoint is added. The provider rejects `github` mode;
+it is never an automatic fallback after a live failure.
+
+The dataset contains four labelled, synthetic commit/PR/test/release-style excerpts,
+an illustrative milestone, and explicit coverage limitations. Form notes supply
+supporting material, invalid-input behavior has an evidence gap, and incomplete
+test/release notes leave uncertainty for later evaluation. These are demo inputs,
+not predetermined criterion results or claims about the submitted repository.
+All bundled evidence URLs are null; no fake SHA, PR number, file path, or external
+URL is created. Stable IDs use `sample:registration-demo-v1:<local-source-id>`.
+
+Records validate on load; missing/unreadable, malformed, unsupported, duplicate-ID,
+and mislabelled fixtures raise explicit internal errors rather than empty evidence
+or substituted data. Genuine supplied URLs are preserved by the normalized models.
+The fixture is included in installed packages and requires no network or credentials.
+
+The FastAPI `get_evidence_provider` dependency is injected into the evaluation
+service boundary as `evidence_provider`. A future evaluator can await
+`evidence_provider.retrieve(request)` before assessing criteria. The current
+unconfigured evaluator still returns the same honest HTTP 502 failure without
+retrieving evidence or generating a report. Full source dispatch/live retrieval
+remains BE-06 and evaluator/report integration remains BE-07/BE-09.
 
 ## Confirmed MVP defaults and implementation boundaries
 
@@ -127,8 +177,9 @@ approval. See sections 8–9 of
   No automatic retry or fallback may disguise the original failure. No new public
   error codes or fields are introduced.
 
-Later services must implement D5's deterministic fixture selection without silent
-fallback, D6's actual-source preservation/disclosure through existing fields, and
+The sample provider implements D5's deterministic fixture selection without silent
+fallback. Later report services must preserve D6's actual-source disclosure through
+existing fields and
 D7's distinction between insufficient evidence and retrieval/evaluation failures.
 No additional public error or provenance fields are approved. The current handlers
 cover request validation and the unconfigured service. BE-10 owns remaining
