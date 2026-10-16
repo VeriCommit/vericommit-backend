@@ -1,7 +1,4 @@
-"""Contract errors needed by request validation and the unconfigured service.
-
-Provider-specific errors, timeouts and other BE-10 safeguards remain later work.
-"""
+"""Safe contract envelopes for validation, evidence retrieval and AI failures."""
 
 from fastapi import Request
 from fastapi.exception_handlers import http_exception_handler
@@ -9,7 +6,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from vericommit_backend.evidence.providers import EvidenceProviderError
 from vericommit_backend.schemas import ErrorDetail, ErrorResponse
+from vericommit_backend.services.ai import AIEvaluationError, AITimeoutError
 from vericommit_backend.services.evaluation import EvaluationNotConfiguredError
 
 
@@ -59,4 +58,26 @@ async def evaluation_not_configured_handler(
         502,
         "EVALUATION_FAILED",
         "The evaluation service is not configured. No evaluation was performed.",
+    )
+
+
+async def ai_evaluation_error_handler(
+    request: Request, exc: AIEvaluationError
+) -> JSONResponse:
+    return error_response(
+        504 if isinstance(exc, AITimeoutError) else 502,
+        "EVALUATION_FAILED",
+        "AI evaluation timed out."
+        if isinstance(exc, AITimeoutError)
+        else "AI evaluation or evidence grounding failed. No report was generated.",
+    )
+
+
+async def evidence_provider_error_handler(
+    request: Request, exc: EvidenceProviderError
+) -> JSONResponse:
+    return error_response(
+        502,
+        "EVIDENCE_RETRIEVAL_FAILED",
+        "Required evidence could not be retrieved. GitHub mode is not implemented; no sample fallback was used.",
     )

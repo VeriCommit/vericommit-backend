@@ -95,10 +95,15 @@ def test_default_service_never_fabricates_a_success(application, payloads, sourc
     with TestClient(application) as client:
         response = client.post(ENDPOINT, json=request)
         assert client.get("/health").status_code == 200
-    assert_error(response, 502, "EVALUATION_FAILED")
-    assert response.json()["error"]["message"] == (
-        "The evaluation service is not configured. No evaluation was performed."
+    assert_error(
+        response,
+        502,
+        "EVALUATION_FAILED" if source == "sample" else "EVIDENCE_RETRIEVAL_FAILED",
     )
+    if source == "sample":
+        assert response.json()["error"]["message"] == (
+            "The evaluation service is not configured. No evaluation was performed."
+        )
 
 
 @pytest.mark.parametrize(
