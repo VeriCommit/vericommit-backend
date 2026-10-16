@@ -108,6 +108,24 @@ For `evidence_source: "sample"`, the backend must use clearly labelled demonstra
 
 The URLs and findings in this example are illustrative only; they are not verified project evidence.
 
+### Evidence references without a genuine URL
+
+`criteria_results[].evidence[].url` remains present in every evidence reference
+and may be a string or `null`. Use a genuine URL for URL-bearing evidence. For
+clearly labelled sample evidence with no genuine URL, use `"url": null` rather
+than inventing a link. A `null` URL alone does not identify the source as sample;
+sample evidence must still be clearly labelled.
+
+Illustrative sample evidence reference (not verified project evidence):
+
+```json
+{
+  "type": "test_result",
+  "title": "Sample: registration validation test result (illustrative)",
+  "url": null
+}
+```
+
 ## 5. Allowed Criterion Statuses
 
 - `supported`  available evidence supports the criterion.

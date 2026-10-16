@@ -10,6 +10,8 @@ below records the earlier source-review baseline. Current approval status and th
 remaining confirmation checklist are in section 6.
 No resolutions for D1–D8 were supplied by that approval statement, so their technical
 recommendations are not automatically adopted.
+The subsequent, narrowly approved D6 URL-less sample-reference decision is recorded
+in section 7; earlier open-decision statements below describe the prior review.
 
 This review preserves the original documented interface and product rules. An
 "established" requirement below means it appears in the supplied documentation;
@@ -353,3 +355,17 @@ AI rules, backlog, and supplied domain source are preserved. Verification result
 No application implementation or Milestone 1.2 work is introduced. This amendment
 is ready for publication with frontend approval recorded; unresolved technical
 choices and backend confirmation are not represented as finalized.
+
+## 7. Approved D6 URL-less Sample Reference Amendment
+
+The backend maintainer explicitly approved `"url": null` for sample evidence that
+has no genuine URL. `API_CONTRACT.md` section 4 now specifies that the existing
+`criteria_results[].evidence[].url` field is present and accepts a string or
+`null`, and includes an illustrative, clearly labelled sample reference. Genuine
+URLs remain valid; placeholder URLs must not be invented. The original GitHub
+response example and all other request/response fields remain unchanged.
+
+This approval resolves **only the D6 URL-less sample-reference representation**.
+Source-provenance serialization and any additional reference fields are not
+approved by it. Other D1–D8 technical choices remain open; this decision does
+not finalize the overall contract or change the domain relationship rules.
