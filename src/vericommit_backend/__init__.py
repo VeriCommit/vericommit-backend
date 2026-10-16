@@ -1,1 +1,1 @@
-"""VeriCommit backend evaluation contract models."""
+"""VeriCommit backend application and evaluation contract models."""

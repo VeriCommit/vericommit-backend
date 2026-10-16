@@ -6,10 +6,18 @@ build-backend = "setuptools.build_meta"
 name = "vericommit-backend"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2,<3"]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "pydantic>=2,<3",
+    "pydantic-settings>=2.7,<3",
+    "uvicorn>=0.34,<1",
+]
+
+[project.scripts]
+vericommit-backend = "vericommit_backend.__main__:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<9", "ruff>=0.9"]
+dev = ["httpx>=0.28,<1", "pytest>=8,<9", "ruff>=0.9"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
