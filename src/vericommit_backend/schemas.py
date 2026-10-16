@@ -69,8 +69,8 @@ class EvaluationRequest(ContractModel):
 class EvidenceReference(ContractModel):
     type: NonBlankString
     title: NonBlankString
-    # Required in the contract example; URL-less sample representation is open (D6).
-    url: NonBlankString
+    # Field remains required; a URL-less sample reference uses JSON null (D6).
+    url: NonBlankString | None
 
 
 class CriterionResult(ContractModel):

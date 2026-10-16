@@ -17,16 +17,27 @@ from vericommit_backend.schemas import (
 )
 
 
-@pytest.mark.parametrize(
-    ("index", "model"),
-    [(0, EvaluationRequest), (1, EvaluationResponse), (2, ErrorResponse)],
-)
-def test_published_contract_json_examples_round_trip(index, model):
+@pytest.fixture(scope="module")
+def contract_examples():
     contract = Path(__file__).resolve().parents[1] / "docs" / "API_CONTRACT.md"
     examples = re.findall(r"```json\s*(.*?)\s*```", contract.read_text(), re.DOTALL)
-    assert len(examples) == 3
-    example = json.loads(examples[index])
+    assert len(examples) == 4
+    return [json.loads(example) for example in examples]
+
+
+@pytest.mark.parametrize(
+    ("index", "model"),
+    [(0, EvaluationRequest), (1, EvaluationResponse), (3, ErrorResponse)],
+)
+def test_published_contract_json_examples_round_trip(contract_examples, index, model):
+    example = contract_examples[index]
     assert model.model_validate(example).model_dump(mode="json") == example
+
+
+def test_approved_sample_evidence_example_round_trip(contract_examples):
+    example = contract_examples[2]
+    assert example["url"] is None
+    assert EvidenceReference.model_validate(example).model_dump(mode="json") == example
 
 
 @pytest.fixture
@@ -212,15 +223,23 @@ def test_evidence_reference_serialization(response_data):
     )
 
 
-@pytest.mark.parametrize("url", [None, "", "  "])
-def test_evidence_reference_needs_actual_nonblank_url(response_data, url):
+def test_sample_evidence_null_url_is_preserved_in_response(response_data):
+    evidence = response_data["criteria_results"][0]["evidence"][0]
+    evidence.update(type="test_result", title="Sample: registration test", url=None)
+    response = EvaluationResponse.model_validate(response_data)
+    assert json.loads(response.model_dump_json()) == response_data
+    assert response.model_dump()["criteria_results"][0]["evidence"][0]["url"] is None
+
+
+@pytest.mark.parametrize("url", ["", "  ", 0, 3.5, False, [], {}])
+def test_evidence_reference_rejects_invalid_url_values(response_data, url):
     evidence_data = response_data["criteria_results"][0]["evidence"][0]
     evidence_data["url"] = url
     with pytest.raises(ValidationError):
         EvidenceReference.model_validate(evidence_data)
 
 
-def test_url_less_sample_reference_is_unresolved(response_data):
+def test_evidence_reference_still_requires_url_field(response_data):
     evidence_data = response_data["criteria_results"][0]["evidence"][0]
     del evidence_data["url"]
     with pytest.raises(ValidationError):

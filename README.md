@@ -19,8 +19,9 @@ matches a particular request; those checks belong to later services.
 
 ## Unresolved contract details
 
-The recommendations in `docs/API_CONTRACT_REVIEW.md` D1–D8 are not approved
-amendments. This schema keeps the contract's current fields. In particular:
+The technical recommendations in `docs/API_CONTRACT_REVIEW.md` D1–D8 remain
+open except for the approved D6 URL-less sample-reference representation. This
+schema keeps the contract's current fields. In particular:
 
 - **D2:** Only `https://github.com/<owner>/<repo>` (with optional trailing slash)
   is accepted; the original string is preserved. Other URL forms and normalization
@@ -31,17 +32,15 @@ amendments. This schema keeps the contract's current fields. In particular:
   collections may be empty. Evidence `type` is a string, not an invented enum.
   The models preserve list order; matching response criteria to a request remains
   an integration responsibility.
-- **D6 — sample evidence limitation:** `EvidenceReference.url` is a required,
-  nonblank string because that is the only representation shown in the contract.
-  A URL-less sample evidence reference cannot currently be serialized as an
-  `EvidenceReference`. Do not invent a URL, use `null`, or omit `url` to bypass
-  this gap; actual sample references need an explicit contract decision before
-  that part of sample report generation is implemented. Empty `evidence` lists
-  remain valid as illustrated in the contract.
+- **D6 — approved URL-less sample representation:** `EvidenceReference.url` must
+  be present and accepts a nonblank string or `null`. Use `null` only for sample
+  evidence with no genuine URL; clearly label the sample, and never invent a URL.
+  Empty `evidence` lists remain valid as illustrated in the contract. Other D6
+  questions, including machine-readable provenance, remain open.
 - **D8:** The existing nested `error.code` and `error.message` shape is preserved.
   Error-code finalization, HTTP mappings, and optional field details remain open.
 
-These implementation choices are not resolutions to D1–D8 or a declaration that
-the shared contract has been jointly finalized.
+These implementation choices do not resolve other D1–D8 questions or declare
+the shared contract jointly finalized.
 D1 execution/identifier guarantees, D5 sample selection and fallback, and D7
 limited-report/error boundaries also remain open and do not add schema fields.
