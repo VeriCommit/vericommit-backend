@@ -19,8 +19,9 @@ matches a particular request; those checks belong to later services.
 
 ## Confirmed MVP defaults and implementation boundaries
 
-The maintainer has confirmed D1–D8 MVP policy defaults; HTTP mappings remain
-proposals. See sections 7–8 of
+The backend maintainer has approved the final D1–D8 MVP policies, including HTTP
+mappings and error precedence, alongside the frontend lead's previously recorded
+approval. See sections 8–9 of
 `docs/API_CONTRACT_REVIEW.md`. The schema keeps the contract's current fields:
 
 - **D1 — approved:** Evaluation is synchronous and successful responses require a
@@ -43,14 +44,19 @@ proposals. See sections 7–8 of
   Empty `evidence` lists remain valid as illustrated in the contract. Actual-source
   disclosure is a later service responsibility; no public provenance fields are added.
 - **D8:** The existing nested `error.code` and `error.message` shape is preserved.
-  Error-code finalization, HTTP mappings, and precedence await confirmation;
-  additional public error fields are not approved.
+  `INVALID_REQUEST` and `INVALID_REPOSITORY_URL` map to HTTP 400,
+  `REPOSITORY_ACCESS_DENIED` to 403, and `EVIDENCE_RETRIEVAL_FAILED` and
+  `EVALUATION_FAILED` to 502. Upstream timeouts use 504 with the failed operation's
+  existing code. Earlier workflow failures stop later stages; request validation
+  uses the most specific applicable code, including `INVALID_REPOSITORY_URL`.
+  No automatic retry or fallback may disguise the original failure. No new public
+  error codes or fields are introduced.
 
 Later services must implement D5's deterministic fixture selection without silent
 fallback, D6's actual-source preservation/disclosure through existing fields, and
 D7's distinction between insufficient evidence and retrieval/evaluation failures.
 No additional public error or provenance fields are approved. BE-10 owns exception
-handlers; transport mappings and overlapping-error precedence await confirmation.
-These policies do not declare joint contract finalization. Synchronous execution,
+handlers and the approved transport mappings and overlapping-error precedence.
+The public MVP contract is finalized at the policy level. Synchronous execution,
 ID uniqueness, and criterion/result correlation are service requirements, not claims
 of existing runtime functionality.

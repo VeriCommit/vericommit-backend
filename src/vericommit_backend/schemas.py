@@ -1,7 +1,7 @@
 """Pydantic models for the documented MVP evaluation JSON contract.
 
 These models describe evaluation inputs and reports, not persistent funding records.
-See docs/API_CONTRACT.md and docs/API_CONTRACT_REVIEW.md for open decisions.
+See docs/API_CONTRACT.md and docs/API_CONTRACT_REVIEW.md for approved policies.
 """
 
 import re
@@ -21,7 +21,7 @@ NonBlankString = Annotated[str, AfterValidator(_non_blank)]
 EvidenceSource = Literal["github", "sample"]
 CriterionStatus = Literal["supported", "insufficient_evidence", "uncertain"]
 
-# Conservative GitHub web URL form for this schema; URL form/normalization is D2.
+# Approved D2 GitHub web URL form; preserve the supplied URL without normalization.
 _REPOSITORY_PATH = re.compile(
     r"/[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9_.-]+/?\Z"
 )
@@ -100,7 +100,7 @@ class EvaluationResponse(ContractModel):
 
 
 class ErrorDetail(ContractModel):
-    # The documented error codes are suggested, not an approved closed enum (D8).
+    # D8 runtime handlers select approved codes; this model validates the envelope.
     code: NonBlankString
     message: NonBlankString
 
