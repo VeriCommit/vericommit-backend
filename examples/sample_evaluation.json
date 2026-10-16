@@ -1,0 +1,14 @@
+{
+  "project_name": "Synthetic registration demonstration",
+  "repository_url": "https://github.com/VeriCommit/vericommit-backend",
+  "milestone": {
+    "title": "Sample: implement member registration",
+    "description": "Synthetic registration demo context, not a verified project milestone.",
+    "acceptance_criteria": [
+      "A user can submit the registration form.",
+      "Invalid input produces understandable validation errors.",
+      "Automated tests cover successful and unsuccessful registration."
+    ]
+  },
+  "evidence_source": "sample"
+}

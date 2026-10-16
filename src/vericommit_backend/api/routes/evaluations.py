@@ -27,6 +27,7 @@ router = APIRouter(tags=["evaluations"])
             "model": ErrorResponse,
             "description": "Evaluation could not be completed",
         },
+        504: {"model": ErrorResponse, "description": "AI upstream timeout"},
     },
 )
 async def evaluate(

@@ -25,7 +25,8 @@ from the environment and an optional `.env` in the current working directory.
 Copy `.env.example` to `.env` to customize the application name, host, port, reload,
 and log level; shell environment values take precedence. The default binding is
 `127.0.0.1:8000`, with reload disabled. Direct Uvicorn CLI startup uses its own
-host/port/reload options. No provider credentials are required at this stage.
+host/port/reload options. Health and validation work without provider credentials;
+successful AI evaluation requires the configuration below.
 Local `.env` files are Git-ignored; `.env.example` contains no secrets.
 
 ## Local checks
@@ -45,21 +46,22 @@ schema is at `/openapi.json`.
 
 `src/vericommit_backend/schemas.py` models the JSON request, response, and error
 shapes in `docs/API_CONTRACT.md`. The endpoint reuses these models unchanged.
-The internal sample provider is implemented; no live GitHub retrieval,
-funding-agreement storage, or AI evaluator is implemented.
+The sample provider and configured OpenAI evaluator are implemented. No live GitHub
+retrieval or funding-agreement storage is implemented.
 `repository_url` remains required and validated as a GitHub repository URL for
 both `github` and `sample`; sample mode
 does not imply live retrieval. Model validation cannot establish that an evidence
 URL is genuine, that a report is grounded in evidence, or that a criterion result
-matches a particular request; those checks belong to later services.
+matches a particular request; grounding and criterion correlation are enforced by
+the evaluation services described below.
 
 ## Evaluation endpoint
 
 `POST /api/v1/evaluations` validates the approved request and delegates to the async
 `EvaluationService.evaluate(request)` interface. Routing is in
 `api/routes/evaluations.py`; the service interface is in `services/evaluation.py`.
-Use FastAPI's `get_evaluation_service` dependency to connect a later implementation;
-tests inject a fake service through `app.dependency_overrides`.
+FastAPI's `get_evaluation_service` dependency connects the configured AI evaluator;
+tests can replace its AI or evidence boundary through `app.dependency_overrides`.
 
 Example request (illustrative project context only):
 
@@ -69,7 +71,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/evaluations \
   -d '{"project_name":"Demo","repository_url":"https://github.com/example/demo","milestone":{"title":"Registration","description":"Allow registration","acceptance_criteria":["Users can register"]},"evidence_source":"sample"}'
 ```
 
-Until the real service is integrated, **valid requests return HTTP 502**, with:
+Without an AI key, valid sample requests return **HTTP 502**, with:
 
 ```json
 {
@@ -83,6 +85,92 @@ Until the real service is integrated, **valid requests return HTTP 502**, with:
 No successful findings, live evidence retrieval, AI calls, or fallback are fabricated.
 The health endpoint still succeeds because it reports process liveness only.
 
+### Run an AI-assisted sample evaluation
+
+1. Install the project and activate the virtual environment as above.
+2. Copy `.env.example` to `.env`. Set `VERICOMMIT_OPENAI_API_KEY` to a real key
+   locally (or use `OPENAI_API_KEY`). Never commit it. Set `VERICOMMIT_AI_MODEL`
+   to an available model supporting Chat Completions strict JSON Schema; the
+   default is `gpt-4o-mini`. `VERICOMMIT_AI_TIMEOUT_SECONDS` defaults to 30 per
+   criterion. Account access, credits/quota and model availability are required;
+   configuring a key does not prove a call will succeed.
+3. Start `python -m vericommit_backend` in one terminal.
+4. In another terminal, run from the repository root:
+
+```sh
+curl --fail-with-body -X POST http://127.0.0.1:8000/api/v1/evaluations \
+  -H "Content-Type: application/json" \
+  --data-binary @examples/sample_evaluation.json
+```
+
+On Windows PowerShell, use `curl.exe` with the same arguments. Successful calls
+return HTTP 200 with the unchanged public report schema. Each criterion causes
+one independent actual AI call, including duplicates; no fixed criterion statuses
+are used. Evaluation finishes before the response, with a unique UUID-derived ID.
+There is no queue, persistence, automatic retry or mock fallback.
+
+Alternatively, the smoke client validates the actual response schema, original
+criteria, and sample references before printing the report:
+
+```sh
+python examples/smoke_sample.py
+```
+
+The server must already be running with provider credentials. This command has no
+mock mode and exits unsuccessfully on an API error; it never fills in findings.
+Use `--base-url` for a different backend address and `--timeout` for a longer wait.
+
+The SDK adapter is replaceable through `CriterionAIClient.assess`. Credentials are
+server-only, excluded from settings serialization and repr. No repository URL,
+author metadata, credentials or unrelated criteria are sent in the prompt; the
+current criterion, milestone context and supplied untrusted excerpts are sent.
+Provider storage is disabled with `store=false`; this does not claim zero provider
+retention. The SDK client is closed after the request.
+
+The separate Python grounding validator checks exact criterion text, authorized
+IDs, exact contiguous quotes, citation requirements, uncertainty disclosure and
+known unsafe output patterns. AI-supplied URLs and extra output fields are rejected.
+Whole cited records (including their titles) are checked for known evaluator
+instructions, so a harmless fragment cannot launder an instruction-bearing record.
+Activity-count-only excerpts cannot independently support completion. Recognizable
+commit/file/PR/namespace references in AI prose must occur in cited source records;
+funding-relationship assertions and self-asserted verification are rejected.
+Known instructions attempting to waive human review are rejected in reasoning,
+gaps, suggestions, and cited records; AI output cannot set the report's mandatory
+`human_review_required: true` field.
+Public references are rebuilt exclusively from retrieved records. Model reasoning
+is labelled **AI interpretation, not verified fact**; quoted text establishes only
+what the source says. These structural checks and targeted policy rules are not a
+general semantic truth checker or a guarantee against every prompt-injection
+paraphrase. Human review remains mandatory; reports grant no funding authority.
+
+`supported`/`uncertain` require evidence citations; non-supported outcomes require
+explicit gaps or ambiguities. Summaries count the actual validated outcomes and
+retain uncertainty. Sample provenance and fixture limitations are always included.
+AI-reported gaps appear in the criterion explanation and in limitations indexed by
+criterion position, including duplicates; they are labelled as unverified AI output.
+AI next steps are also explicitly labelled as suggestions for human review.
+Successful zero-evidence retrieval may produce an honest limited report after AI
+assessment; retrieval failures never become empty successful retrievals.
+
+AI errors, invalid output, refusal, truncation and grounding rejection return
+`EVALUATION_FAILED`/502; AI timeouts return the same code with 504. Invalid credentials
+are provider failures, not successful evaluations. Missing AI configuration retains
+the explicit error above. GitHub mode returns `EVIDENCE_RETRIEVAL_FAILED`/502 and
+never uses sample fallback. Error responses contain no provider details or excerpts.
+
+Verification uses mocked upstream HTTP through the real SDK and actual application
+services:
+
+```sh
+python -m pytest -q tests/test_ai.py tests/test_grounding.py tests/test_ai_evaluations.py
+```
+
+**No live AI call has been verified: no key was configured in the implementation
+environment.** Mocked tests verify transport, evaluation, grounding, and report
+serialization, not model judgment or resistance to all adversarial prompts. Once
+credentials are available, the curl command or smoke client above is the live test.
+
 Invalid JSON, missing/null/wrong-type fields, blank required strings, empty or
 invalid criteria, unsupported sources, and undocumented fields return HTTP 400
 with the existing `error.code`/`error.message` envelope. URL-format/blank-URL
@@ -90,8 +178,8 @@ validation failures use `INVALID_REPOSITORY_URL`, including alongside generic
 field errors; other request validation failures use `INVALID_REQUEST`. Validation
 failures never invoke `evaluate`. Responses do not echo submitted values or
 framework validation details. OpenAPI documents HTTP 400 instead of FastAPI's
-default 422. Provider-specific errors/timeouts and full BE-10 safeguards remain
-future work.
+default 422. GitHub-specific transport handling and full BE-10 security safeguards
+remain future work.
 
 ## Internal evidence
 
@@ -136,11 +224,10 @@ or substituted data. Genuine supplied URLs are preserved by the normalized model
 The fixture is included in installed packages and requires no network or credentials.
 
 The FastAPI `get_evidence_provider` dependency is injected into the evaluation
-service boundary as `evidence_provider`. A future evaluator can await
-`evidence_provider.retrieve(request)` before assessing criteria. The current
-unconfigured evaluator still returns the same honest HTTP 502 failure without
-retrieving evidence or generating a report. Full source dispatch/live retrieval
-remains BE-06 and evaluator/report integration remains BE-07/BE-09.
+service as `evidence_provider`. The configured evaluator awaits
+`evidence_provider.retrieve(request)` before independently assessing criteria.
+Without AI configuration, the unconfigured evaluator retains the honest HTTP 502
+failure. Full source dispatch/live retrieval remains BE-06.
 
 ## Confirmed MVP defaults and implementation boundaries
 
@@ -182,8 +269,9 @@ fallback. Later report services must preserve D6's actual-source disclosure thro
 existing fields and
 D7's distinction between insufficient evidence and retrieval/evaluation failures.
 No additional public error or provenance fields are approved. The current handlers
-cover request validation and the unconfigured service. BE-10 owns remaining
-provider-error mappings, timeouts and security safeguards.
+cover validation, missing configuration, evidence retrieval failure, AI failure,
+grounding rejection and AI timeouts. BE-10 owns remaining transport/security
+safeguards, including future live GitHub access handling.
 The public MVP contract is finalized at the policy level. Synchronous execution,
-ID uniqueness, and criterion/result correlation are service requirements, not claims
-of existing runtime functionality.
+ID uniqueness, criterion/result correlation, grounded AI output and report assembly
+are implemented by the evaluation services and tested with mocked AI responses.
