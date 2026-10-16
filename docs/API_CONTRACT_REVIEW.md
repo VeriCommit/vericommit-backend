@@ -3,6 +3,11 @@
 **Status: Frontend approval confirmed for the baseline and domain alignment;
 backend confirmation pending. Unresolved technical recommendations remain PROPOSED.**
 
+**Current decision update:** The maintainer has confirmed the D1–D8 MVP defaults
+recorded in section 8; HTTP mappings remain proposals. Earlier open-decision and
+readiness statements are historical
+where superseded by sections 7–8. Overall joint finalization is not recorded.
+
 The maintainer confirms frontend lead approval of the evaluation baseline and
 intended domain alignment, plus product approval of the domain model. No additional
 frontend reapproval is required for these documentation changes. The original review
@@ -369,3 +374,37 @@ This approval resolves **only the D6 URL-less sample-reference representation**.
 Source-provenance serialization and any additional reference fields are not
 approved by it. Other D1–D8 technical choices remain open; this decision does
 not finalize the overall contract or change the domain relationship rules.
+
+## 8. Confirmed D1–D8 MVP Policies and Remaining Implementation Work
+
+The maintainer explicitly authorizes these backend MVP defaults while preserving
+the public API structure. `API_CONTRACT.md` sections 2–6 record the operative rules.
+
+| Decision | Approved default | Implementation status |
+| --- | --- | --- |
+| D1 | Synchronous evaluation; every success returns a unique nonblank `evaluation_id`. No background queue or persistence is required, and no UUID format is imposed. | The schema requires a nonblank string. Execution and unique ID generation belong to the future evaluation service; they are not implemented by schema validation. |
+| D2 | Retain existing strict validation and GitHub URL rules; reject missing/null/blank/wrong-type inputs, extra fields, and unsupported sources. Preserve criterion wording/order and duplicates. Document existing limits without adding restrictions. | Already implemented by the schemas. Nonblank strings and at least one criterion are enforced; no numeric maximum lengths, counts, or request-size limit are added. |
+| D3 | Keep `repository_url` required and validated in both modes; explicitly document this sample-mode MVP limitation. | Already implemented and tested. No field omission/null amendment is made. |
+| D4 | Preserve all existing required fields, nesting, array semantics, criterion order/wording, three statuses, nullable evidence URLs, and mandatory human review. No persistent relationship identifiers. | Schemas are compatible, including PR #15's strict boolean fix. Runtime criterion/result correlation belongs to the evaluation service. |
+| D5 | Retain both selectors; never silently substitute sample data after GitHub failure. | Selector validation exists. BE-05 owns deterministic fixtures; provider selection/failure behavior remains service implementation work. |
+| D6 | Preserve required nullable URLs, actual internal provenance and genuine references; label samples and never invent links. No new public provenance fields. | URL representation is implemented. The lack of a dedicated public actual-source field is documented; later services must disclose source through existing titles/limitations. |
+| D7 | Return limited reports for genuinely insufficient evidence after successful retrieval; return errors for required retrieval or AI failures. | Both shapes exist; runtime outcome selection and honest failure disclosure remain service work. |
+| D8 | Preserve `error.code`/`error.message`; no additional error fields. Propose HTTP mappings and leave handlers to BE-10. | Envelope is implemented. The mappings in API contract section 6 remain PROPOSED, as do code finalization and overlapping-error precedence. |
+
+These are confirmed implementation defaults, not claims of completed services.
+D1–D7 and D8's envelope/deferred-handler boundary are settled for this MVP scope.
+The public provenance limitation is explicitly accepted for later implementation,
+not permission to add fields. No original domain rule is changed. Earlier D1–D8
+open-decision statements are historical wherever superseded by this section.
+
+Remaining closure concerns are explicit backend lead/joint contract confirmation,
+approval of D8 transport mappings/code finalization/error precedence, and verification
+of BE-01's acceptance criteria. Runtime execution, ID generation, provenance,
+correlation, provider selection, and exception handlers belong to later implementation
+issues; they must not be represented as implemented by schema tests. No further
+frontend reapproval of the unchanged baseline/domain alignment is asserted necessary.
+
+Schema compatibility checks cover strict request rejection, preserved criterion
+wording/order/duplicates, and nonblank evaluation IDs. Unique ID generation and
+synchronous execution must be verified when the evaluation service is implemented;
+passing schema tests alone is not evidence of those runtime capabilities.

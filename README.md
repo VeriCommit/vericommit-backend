@@ -17,17 +17,22 @@ does not imply live retrieval. Model validation cannot establish that an evidenc
 URL is genuine, that a report is grounded in evidence, or that a criterion result
 matches a particular request; those checks belong to later services.
 
-## Unresolved contract details
+## Confirmed MVP defaults and implementation boundaries
 
-The technical recommendations in `docs/API_CONTRACT_REVIEW.md` D1–D8 remain
-open except for the approved D6 URL-less sample-reference representation. This
-schema keeps the contract's current fields. In particular:
+The maintainer has confirmed D1–D8 MVP policy defaults; HTTP mappings remain
+proposals. See sections 7–8 of
+`docs/API_CONTRACT_REVIEW.md`. The schema keeps the contract's current fields:
 
-- **D2:** Only `https://github.com/<owner>/<repo>` (with optional trailing slash)
-  is accepted; the original string is preserved. Other URL forms and normalization
-  require agreement. No length limits are imposed. Whitespace-only required strings
-  and undocumented fields are rejected without rewriting input or deduplicating it.
-- **D3:** `repository_url` is required in both modes as shown in the contract.
+- **D1 — approved:** Evaluation is synchronous and successful responses require a
+  unique nonblank `evaluation_id`. No queue, UUID format, or persistence is required.
+  The schema checks nonblank IDs; future service code must generate unique IDs.
+- **D2 — approved:** Retain strict validation and the existing GitHub URL validator,
+  including an optional trailing slash and preservation of the original string.
+  Required strings must be nonblank, types must match, extra fields are rejected,
+  and criteria must contain at least one nonblank string. Wording, order, and
+  duplicates are preserved. No numeric maximum lengths/counts/request-size bounds
+  are imposed by the schemas. Exact URL rules are in `docs/API_CONTRACT.md` section 3.
+- **D3 — confirmed MVP limitation:** `repository_url` is required in both modes.
 - **D4:** Response fields shown in the example are required; evidence and other
   collections may be empty. Evidence `type` is a string, not an invented enum.
   The models preserve list order; matching response criteria to a request remains
@@ -35,12 +40,17 @@ schema keeps the contract's current fields. In particular:
 - **D6 — approved URL-less sample representation:** `EvidenceReference.url` must
   be present and accepts a nonblank string or `null`. Use `null` only for sample
   evidence with no genuine URL; clearly label the sample, and never invent a URL.
-  Empty `evidence` lists remain valid as illustrated in the contract. Other D6
-  questions, including machine-readable provenance, remain open.
+  Empty `evidence` lists remain valid as illustrated in the contract. Actual-source
+  disclosure is a later service responsibility; no public provenance fields are added.
 - **D8:** The existing nested `error.code` and `error.message` shape is preserved.
-  Error-code finalization, HTTP mappings, and optional field details remain open.
+  Error-code finalization, HTTP mappings, and precedence await confirmation;
+  additional public error fields are not approved.
 
-These implementation choices do not resolve other D1–D8 questions or declare
-the shared contract jointly finalized.
-D1 execution/identifier guarantees, D5 sample selection and fallback, and D7
-limited-report/error boundaries also remain open and do not add schema fields.
+Later services must implement D5's deterministic fixture selection without silent
+fallback, D6's actual-source preservation/disclosure through existing fields, and
+D7's distinction between insufficient evidence and retrieval/evaluation failures.
+No additional public error or provenance fields are approved. BE-10 owns exception
+handlers; transport mappings and overlapping-error precedence await confirmation.
+These policies do not declare joint contract finalization. Synchronous execution,
+ID uniqueness, and criterion/result correlation are service requirements, not claims
+of existing runtime functionality.

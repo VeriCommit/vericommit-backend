@@ -2,6 +2,11 @@
 
 **Status:** Frontend-approved evaluation contract and domain alignment; backend lead confirmation and unresolved technical decisions remain pending before joint finalization.
 
+**Current MVP policy decision:** The maintainer confirms the D1–D8 implementation
+defaults below. Public fields and domain rules are unchanged. HTTP status mappings
+remain explicitly proposed; runtime implementation and separate backend lead
+confirmation are not implied by this policy approval.
+
 The maintainer confirms that the frontend lead has approved both the evaluation contract and the intended domain-model alignment. No additional frontend reapproval is required for these documentation changes. Product approval of the domain specification is also confirmed. The evaluation interface remains unchanged.
 
 | Approval | Current status |
@@ -24,6 +29,15 @@ The contract is intentionally small for the hackathon MVP. Both teams should agr
 - **Content-Type:** `application/json`
 
 The endpoint evaluates available project evidence against previously agreed milestone acceptance criteria.
+
+### Approved MVP execution policy (D1)
+
+Evaluation completes synchronously within the request/response interaction. Each
+successful evaluation returns a unique, nonblank `evaluation_id` string. No UUID
+format, background queue, polling route, or persistence is required. ID generation
+and uniqueness are evaluation-service responsibilities; the schema validates the
+required nonblank string, not uniqueness across evaluations. This policy does not
+claim that an evaluation service or endpoint is already implemented.
 
 ## 3. Request
 
@@ -58,6 +72,46 @@ The endpoint evaluates available project evidence against previously agreed mile
 | `evidence_source` | string | Yes | `github` or `sample` |
 
 For `evidence_source: "sample"`, the backend must use clearly labelled demonstration evidence rather than pretending to retrieve live GitHub data.
+
+### Approved MVP request validation (D2)
+
+The maintainer approves the existing strict Pydantic behavior as the MVP default:
+
+- Reject missing required fields, null required values, wrong JSON types,
+  whitespace-only required strings, and undocumented fields; do not coerce types.
+- Require at least one acceptance criterion, with every criterion a nonblank
+  string. Preserve wording, whitespace within nonblank strings, ordering, and
+  duplicates exactly; do not trim, rewrite, or silently deduplicate criteria.
+- Accept only `github` and `sample` as evidence-source values.
+- Retain the implemented GitHub URL validator: HTTPS, a case-insensitive
+  `github.com` host without credentials or an explicit port, and an owner/repository
+  path with an optional trailing slash. Owner names begin/end with an ASCII
+  alphanumeric character and otherwise contain alphanumerics or hyphens; repository
+  names contain ASCII alphanumerics, underscores, dots, or hyphens and cannot be
+  `.` or `..`. Reject query/fragment delimiters, whitespace, character codes below 32,
+  and additional path segments. Preserve the supplied URL without normalization.
+- Existing limits are a minimum of one criterion and nonblank required strings.
+  No numeric maximum field length, criterion count/length, or request-size limit
+  is currently imposed by these schemas; no new bounds are introduced here.
+
+`repository_url` remains required in both modes under the current field table.
+This is the confirmed D3 MVP limitation: sample mode still requires a valid
+repository URL even though it does not fetch that repository. Do not invent a URL
+to satisfy validation. Any future omission/null policy requires an explicit contract
+amendment. Public field names and shapes are unchanged.
+
+### Evidence mode and provenance policies (D5–D6)
+
+Both approved selector values, `github` and `sample`, are supported by the contract.
+GitHub retrieval failure must not silently substitute sample evidence. BE-05 owns
+deterministic sample fixture selection; this policy does not implement a provider.
+
+Preserve actual source information and stable references internally. Do not invent
+URLs or source references, or add public provenance fields. Source disclosure is a
+current interface limitation: evidence items have no dedicated public actual-source
+field. Later evidence/report services must clearly disclose source and limitations
+through existing titles and report limitations, without changing evidence `type`
+into a source selector. A null URL alone is not a sample label.
 
 ## 4. Response
 
@@ -128,6 +182,19 @@ Illustrative sample evidence reference (not verified project evidence):
 
 ## 5. Allowed Criterion Statuses
 
+### Confirmed response policy (D4)
+
+Preserve every response field and nesting shown above. All shown fields are
+required; collections are arrays and may be empty, not null. Evidence `type`
+remains a nonblank string rather than a new enum. Each result preserves the
+original criterion wording and input order, including duplicate criteria; the
+evaluation service owns runtime criterion/result correlation. Schemas preserve
+list order but do not independently compare a response with its request.
+
+`human_review_required` must be the literal boolean `true`, not numeric or string
+equivalents. Do not add persistent project, Milestone, Grantor, Grantee, or Funding
+Agreement identifiers. The present-but-nullable evidence `url` rule is unchanged.
+
 - `supported`  available evidence supports the criterion.
 - `insufficient_evidence`  available evidence does not demonstrate the criterion.
 - `uncertain`  evidence exists, but its meaning or sufficiency is unclear.
@@ -158,6 +225,35 @@ Suggested error codes:
 - `EVALUATION_FAILED`  evaluation could not be completed.
 
 The frontend should display an understandable message and allow the user to recover where possible.
+
+### Reports versus errors (D7)
+
+When retrieval succeeds but available evidence is genuinely insufficient, return
+an honest limited report using the existing criterion statuses, explanations,
+limitations, and next steps. Missing evidence is not proof of missing work.
+When required evidence retrieval or AI evaluation fails, return the corresponding
+error rather than presenting the failure as an empty successful retrieval or proof
+that no work exists. Do not silently switch to sample evidence after a live failure.
+
+### Error transport proposal (D8 — HTTP mappings not yet approved)
+
+The confirmed error envelope remains `error.code` plus `error.message`, with no
+additional public fields. The following consistent mappings are proposed for
+confirmation before BE-10 implements FastAPI exception handlers:
+
+| Outcome / code | Proposed HTTP status |
+| --- | --- |
+| Completed evaluation, including an honest limited report | `200` |
+| Malformed JSON / `INVALID_REQUEST` | `400` |
+| Missing or invalid fields / `INVALID_REQUEST` | `422` |
+| Unsupported or invalid repository URL / `INVALID_REPOSITORY_URL` | `422` |
+| Repository access unavailable / `REPOSITORY_ACCESS_DENIED` | `403` |
+| Required retrieval failed / `EVIDENCE_RETRIEVAL_FAILED` | `502` |
+| Evaluation failed / `EVALUATION_FAILED` | `500` |
+
+These statuses, overlapping-error precedence, and code finalization still require
+confirmation; they are not adopted implicitly by Pydantic or FastAPI defaults.
+No exception handlers or structured field-error additions are introduced here.
 
 ## 7. Evaluation Rules
 
