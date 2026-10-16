@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 
 import httpx
 import pytest
@@ -174,3 +175,41 @@ def test_credentials_are_excluded_and_settings_validated(monkeypatch):
     assert Settings(_env_file=None, VERICOMMIT_OPENAI_API_KEY="").openai_api_key is None
     with pytest.raises(ValidationError):
         Settings(_env_file=None, ai_timeout_seconds=0)
+
+
+@pytest.mark.parametrize("status", [200, 401, 500])
+def test_sdk_debug_logs_never_disclose_source_or_credentials(
+    ai_request, retrieved_evidence, assessment_payload, caplog, status
+):
+    criterion = ai_request.milestone.acceptance_criteria[0]
+    payload = assessment_payload(criterion)
+
+    def handler(request):
+        if status == 200:
+            return httpx.Response(200, json=completion(json.dumps(payload)))
+        return httpx.Response(
+            status, json={"error": {"message": "confidential-provider-body"}}
+        )
+
+    async def run():
+        async with AsyncOpenAI(
+            api_key="private-key-sentinel",
+            max_retries=0,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        ) as sdk:
+            client = OpenAICriterionClient(sdk, "test-model")
+            if status == 200:
+                await client.assess(criterion, ai_request.milestone, retrieved_evidence)
+            else:
+                with pytest.raises(AIEvaluationError):
+                    await client.assess(
+                        criterion, ai_request.milestone, retrieved_evidence
+                    )
+
+    with caplog.at_level(logging.DEBUG, logger="openai._base_client"):
+        asyncio.run(run())
+    assert "private-key-sentinel" not in caplog.text
+    assert "confidential-provider-body" not in caplog.text
+    assert criterion not in caplog.text
+    assert retrieved_evidence.evidence[0].content not in caplog.text
+    assert not any(r.name == "openai._base_client" for r in caplog.records)
