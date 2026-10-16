@@ -22,6 +22,9 @@ dev = ["httpx>=0.28,<1", "pytest>=8,<9", "ruff>=0.9"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+vericommit_backend = ["fixtures/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

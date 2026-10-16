@@ -54,7 +54,13 @@ class NormalizedEvidence(InternalEvidenceModel):
     metadata: EvidenceMetadata = Field(default_factory=EvidenceMetadata)
 
     @model_validator(mode="after")
-    def sample_is_labelled(self) -> Self:
+    def identity_and_sample_label_are_consistent(self) -> Self:
+        if not self.evidence_id.startswith(
+            f"{self.source}:"
+        ) or not self.evidence_id.endswith(f":{self.source_id}"):
+            raise ValueError(
+                "evidence ID must preserve its source and source identifier"
+            )
         if self.source == "sample" and (
             not self.title.startswith("Sample: ") or not self.title[8:].strip()
         ):
@@ -62,10 +68,6 @@ class NormalizedEvidence(InternalEvidenceModel):
         return self
 
     def to_public_reference(self) -> EvidenceReference:
-        if self.url is None and self.source != "sample":
-            raise ValueError(
-                "URL-less public references must be explicitly labelled samples"
-            )
         # Carry the stable reference in an existing field, never a new public ID.
         return EvidenceReference(
             type=self.type,

@@ -1,0 +1,58 @@
+{
+  "fixture_id": "registration-demo-v1",
+  "source": "sample",
+  "milestone": {
+    "title": "Sample: implement member registration",
+    "description": "Synthetic registration demo context, not a verified project milestone.",
+    "acceptance_criteria": [
+      "A user can submit the registration form.",
+      "Invalid input produces understandable validation errors.",
+      "Automated tests cover successful and unsuccessful registration."
+    ]
+  },
+  "evidence": [
+    {
+      "evidence_id": "sample:registration-demo-v1:form-commit-notes",
+      "source_id": "form-commit-notes",
+      "source": "sample",
+      "type": "commit",
+      "title": "Sample: registration form change notes (synthetic)",
+      "url": null,
+      "content": "Synthetic commit-style notes: add name and email inputs and a submit handler that calls the registration action. This is locally authored demonstration text, not a real GitHub commit; no commit SHA or repository file is claimed."
+    },
+    {
+      "evidence_id": "sample:registration-demo-v1:form-review-notes",
+      "source_id": "form-review-notes",
+      "source": "sample",
+      "type": "pull_request",
+      "title": "Sample: registration form review excerpt (synthetic)",
+      "url": null,
+      "content": "Synthetic PR-style excerpt: the form submits valid member details and displays a success confirmation. The excerpt does not document invalid-input behavior. This is an illustrative review description, not a retrieved or verified pull request."
+    },
+    {
+      "evidence_id": "sample:registration-demo-v1:happy-path-test-excerpt",
+      "source_id": "happy-path-test-excerpt",
+      "source": "sample",
+      "type": "test_result",
+      "title": "Sample: partial registration test excerpt (synthetic)",
+      "url": null,
+      "content": "Synthetic test-output excerpt: registration with valid details shows a confirmation. Only the happy-path case is shown; there is no test-run identifier, complete suite output, or unsuccessful-registration result. It is ambiguous whether both requested scenarios are covered."
+    },
+    {
+      "evidence_id": "sample:registration-demo-v1:release-summary-notes",
+      "source_id": "release-summary-notes",
+      "source": "sample",
+      "type": "release",
+      "title": "Sample: registration release summary (synthetic)",
+      "url": null,
+      "content": "Synthetic release-style summary: registration is ready for demonstration. No deployment, release tag, validation demonstration, or production verification accompanies this statement. This is ambiguous summary text, not a real published release."
+    }
+  ],
+  "limitations": [
+    "All evidence is explicitly labelled synthetic sample data; no live GitHub retrieval or test execution occurred.",
+    "This fixed registration example is not evidence about the supplied repository, project, or an arbitrary submitted milestone.",
+    "Form notes illustrate supporting evidence; no supplied record demonstrates understandable invalid-input errors.",
+    "The partial test excerpt does not establish coverage of unsuccessful registration; the release summary does not prove working functionality.",
+    "Missing evidence does not establish that work was not performed. A future evaluator must assess the submitted criteria and retain uncertainty and human review."
+  ]
+}

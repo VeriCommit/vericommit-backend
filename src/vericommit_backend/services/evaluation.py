@@ -2,6 +2,7 @@
 
 from typing import Protocol
 
+from vericommit_backend.evidence.providers import EvidenceProvider
 from vericommit_backend.schemas import EvaluationRequest, EvaluationResponse
 
 
@@ -16,6 +17,9 @@ class EvaluationNotConfiguredError(RuntimeError):
 
 
 class UnconfiguredEvaluationService:
+    def __init__(self, evidence_provider: EvidenceProvider) -> None:
+        self.evidence_provider = evidence_provider
+
     async def evaluate(self, request: EvaluationRequest) -> EvaluationResponse:
         # Never turn missing provider integrations into fabricated findings.
         raise EvaluationNotConfiguredError

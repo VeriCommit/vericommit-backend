@@ -39,6 +39,8 @@ def test_evidence_requires_identity_type_title_and_provenance(sample_data, field
     ("field", "value"),
     [
         ("evidence_id", " "),
+        ("evidence_id", "github:demo:form-notes"),
+        ("evidence_id", "sample:demo:different-record"),
         ("source_id", None),
         ("source", "live"),
         ("source", "GitHub"),
@@ -132,8 +134,10 @@ def test_normalization_preserves_stable_scoped_ids_and_missing_metadata(
     assert (
         NormalizedEvidence.model_validate_json(evidence.model_dump_json()) == evidence
     )
-    with pytest.raises(ValueError, match="URL-less public references"):
-        evidence.to_public_reference()
+    reference = evidence.to_public_reference()
+    assert reference.url is None
+    assert evidence.evidence_id in reference.title
+    assert reference.type == kind
 
 
 def test_raw_github_fields_are_separate_from_normalized_evidence():
