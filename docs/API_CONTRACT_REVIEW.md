@@ -1,25 +1,35 @@
 # BE-01 / Milestone 1.1 — Evaluation API Contract Review
 
-**Status: Frontend approval confirmed for the baseline and domain alignment;
-backend confirmation pending. Unresolved technical recommendations remain PROPOSED.**
+**Status: Approved public MVP contract baseline. Frontend approval is preserved;
+backend maintainer confirmation and final D8 approval are recorded. D1–D8 are
+resolved at the policy level, not implemented runtime capabilities.**
+
+**Final decision update (2026-10-16):** The backend maintainer explicitly approves
+the documented MVP policies and D8 mappings, timeouts, and precedence. Sections
+8–9 and `API_CONTRACT.md` sections 2–10 are the operative baseline. Sections 1–7
+preserve review history: their proposed mappings, open decisions, pending approval
+checklists, and earlier implementation/readiness statements describe those earlier
+reviews, not current blockers. Section 9 assesses the actual GitHub issue #2
+acceptance criteria. No separate approval of new public fields or functionality
+is inferred.
 
 The maintainer confirms frontend lead approval of the evaluation baseline and
 intended domain alignment, plus product approval of the domain model. No additional
 frontend reapproval is required for these documentation changes. The original review
-below records the earlier source-review baseline. Current approval status and the
-remaining confirmation checklist are in section 6.
-No resolutions for D1–D8 were supplied by that approval statement, so their technical
-recommendations are not automatically adopted.
+below records the earlier source-review baseline. The historical domain approval
+and confirmation checklist are in section 6; current confirmation is in section 9.
+No resolutions for D1–D8 were supplied by that earlier approval statement, so its
+technical recommendations were not automatically adopted.
 The subsequent, narrowly approved D6 URL-less sample-reference decision is recorded
 in section 7; earlier open-decision statements below describe the prior review.
 
-This review preserves the original documented interface and product rules. An
-"established" requirement below means it appears in the supplied documentation;
-it does not imply that the leads have approved the contract. Only the open
-decisions and recommendations require additional technical choices. Work stops
-at Milestone 1.1.
+This review preserves the original documented interface and product rules. In the
+historical sections, an "established" requirement means it appeared in the supplied
+documentation, not that approval had already been recorded at that review stage.
+The original review stopped at Milestone 1.1; current policy and schema verification
+are recorded in sections 8–9.
 
-## 1. Sources inspected and reconciliation
+## 1. Original Review: Sources Inspected and Reconciliation (Historical)
 
 All five original review files are present and have been read in full. The previous
 missing-document blocker is resolved. No repository `AGENTS.md` was found.
@@ -149,7 +159,7 @@ From API contract sections 7–8, MVP scope sections 2–5, evaluation rules sec
 - Keep the demo small and free-tool-based; production payment integrations and
   broader grant administration remain outside the MVP.
 
-## 3. Genuine open decisions and minimal recommendations
+## 3. Original Open Decisions and Minimal Recommendations (Historical)
 
 All recommendations below are **PROPOSED**, not new established requirements.
 They retain the documented route, names, statuses, source values, and error codes.
@@ -169,7 +179,7 @@ These decisions can be expressed through JSON objects, arrays, strings, booleans
 and explicit constraints in later Pydantic models. No Python-specific type,
 framework default, model, or implementation is prescribed here.
 
-### Candidate HTTP mapping — PROPOSED under D7–D8
+### Original Candidate HTTP Mapping — Superseded by Final D8
 
 None of these HTTP statuses is specified by the original contract.
 
@@ -208,7 +218,7 @@ the product lead should help reconcile D3 and the first-demo choice.
 - [ ] After approval, align examples for live/sample evidence, limited evidence,
   validation errors, access/retrieval failures, and evaluation failures.
 
-**Current backend lead confirmation: PENDING. Frontend approval: CONFIRMED for the
+**At the original review: backend lead confirmation PENDING. Frontend approval CONFIRMED for the
 baseline and intended domain alignment; no additional reapproval required.**
 `API_CONTRACT.md` records that approval and the remaining decisions in section 6.
 Contract finalization is not recorded. Milestone 1.2 requires explicit authorization
@@ -230,7 +240,7 @@ No endpoint, Pydantic schema, dependency, database, frontend functionality, GitH
 retrieval, or AI integration is introduced. No credentials or secrets are added.
 Work stops at Milestone 1.1.
 
-## 6. Approved Domain Model Alignment
+## 6. Approved Domain Model Alignment (Historical Amendment)
 
 ### Sources and approval provenance
 
@@ -249,7 +259,7 @@ Product approval of relationships is distinct from API amendment approval, and
 specification approval is distinct from implementation. The source expressly
 defers correction/reassignment and agreement-transfer workflows beyond the MVP.
 
-| Approval | Current status |
+| Approval | Status at the domain-alignment amendment |
 | --- | --- |
 | Domain specification | Officially approved; source metadata still says proposed. |
 | Frontend lead | Baseline and intended alignment approved; no additional reapproval required. |
@@ -295,7 +305,7 @@ that implementation, not claims of current persistence, access enforcement, or
 available management workflows. Agreement lifecycle statuses and permissions need
 their own approved specification; they must not become evaluation criterion statuses.
 
-### D1–D8 review and Milestone 1.2 readiness
+### D1–D8 Review and Milestone 1.2 Readiness at the Domain Amendment
 
 Each decision is reviewed individually below. **All remain unresolved in this review**: domain
 approval and frontend approval of the unchanged interface/alignment do not supply
@@ -356,7 +366,7 @@ No application implementation or Milestone 1.2 work is introduced. This amendmen
 is ready for publication with frontend approval recorded; unresolved technical
 choices and backend confirmation are not represented as finalized.
 
-## 7. Approved D6 URL-less Sample Reference Amendment
+## 7. Approved D6 URL-less Sample Reference Amendment (Historical Approval)
 
 The backend maintainer explicitly approved `"url": null` for sample evidence that
 has no genuine URL. `API_CONTRACT.md` section 4 now specifies that the existing
@@ -365,7 +375,151 @@ has no genuine URL. `API_CONTRACT.md` section 4 now specifies that the existing
 URLs remain valid; placeholder URLs must not be invented. The original GitHub
 response example and all other request/response fields remain unchanged.
 
-This approval resolves **only the D6 URL-less sample-reference representation**.
+This approval resolved **only the D6 URL-less sample-reference representation**.
 Source-provenance serialization and any additional reference fields are not
-approved by it. Other D1–D8 technical choices remain open; this decision does
-not finalize the overall contract or change the domain relationship rules.
+approved by it. Other D1–D8 technical choices remained open at that time; this
+decision alone did not finalize the overall contract or change domain rules.
+The subsequent approvals in sections 8–9 resolve the MVP policies without adding
+public provenance fields.
+
+## 8. Confirmed D1–D8 MVP Policies and Remaining Implementation Work
+
+The maintainer explicitly authorizes these backend MVP defaults while preserving
+the public API structure. `API_CONTRACT.md` sections 2–6 record the operative rules.
+
+| Decision | Approved default | Implementation status |
+| --- | --- | --- |
+| D1 | Synchronous evaluation; every success returns a unique nonblank `evaluation_id`. No background queue or persistence is required, and no UUID format is imposed. | The schema requires a nonblank string. Execution and unique ID generation belong to the future evaluation service; they are not implemented by schema validation. |
+| D2 | Retain existing strict validation and GitHub URL rules; reject missing/null/blank/wrong-type inputs, extra fields, and unsupported sources. Preserve criterion wording/order and duplicates. Document existing limits without adding restrictions. | Already implemented by the schemas. Nonblank strings and at least one criterion are enforced; no numeric maximum lengths, counts, or request-size limit are added. |
+| D3 | Keep `repository_url` required and validated in both modes; explicitly document this sample-mode MVP limitation. | Already implemented and tested. No field omission/null amendment is made. |
+| D4 | Preserve all existing required fields, nesting, array semantics, criterion order/wording, three statuses, nullable evidence URLs, and mandatory human review. No persistent relationship identifiers. | Schemas are compatible, including PR #15's strict boolean fix. Runtime criterion/result correlation belongs to the evaluation service. |
+| D5 | Retain both selectors; deterministic backend-owned sample selection, with no automatic retry or fallback disguising an original failure. Never silently substitute sample data after GitHub failure. | Selector validation exists. BE-05 owns deterministic fixtures; provider selection/failure behavior remains service implementation work. |
+| D6 | Preserve required nullable URLs, actual internal provenance and genuine references; label samples and never invent links. No new public provenance fields. | URL representation is implemented. The lack of a dedicated public actual-source field is documented; later services must disclose source through existing titles/limitations. |
+| D7 | Return limited reports for genuinely insufficient evidence after successful retrieval; return errors for required retrieval or AI failures. | Both shapes exist; runtime outcome selection and honest failure disclosure remain service work. |
+| D8 | Preserve `error.code`/`error.message` and the five existing codes. Approve 400 for request/URL errors, 403 for access denial, 502 for retrieval/evaluation failure, and 504 for upstream timeouts with the failed operation's existing code. Earlier-stage failures stop later work; validation uses the most specific applicable code. | Envelope is implemented; it validates nonblank code/message strings, not a closed code enum or HTTP status. BE-10 implements approved code selection, mappings, precedence, and timeouts; BE-03 integrates request validation. No handlers exist yet. |
+
+These are confirmed implementation defaults, not claims of completed services.
+D1–D8, including D8 transport and precedence, are settled for this MVP scope.
+The public provenance limitation is explicitly accepted for later implementation,
+not permission to add fields. No original domain rule is changed. Earlier D1–D8
+open-decision statements are historical wherever superseded by this section.
+
+The final backend maintainer confirmation and BE-01 acceptance assessment are
+recorded in section 9. Runtime execution, ID generation, provenance,
+correlation, provider selection, and exception handlers belong to later implementation
+issues; they must not be represented as implemented by schema tests. No further
+frontend reapproval of the unchanged baseline/domain alignment is asserted necessary.
+
+Schema compatibility checks cover strict request rejection, preserved criterion
+wording/order/duplicates, and nonblank evaluation IDs. Unique ID generation and
+synchronous execution must be verified when the evaluation service is implemented;
+passing schema tests alone is not evidence of those runtime capabilities.
+
+## 9. Final Contract Confirmation and BE-01 Assessment
+
+### Approval provenance and approved baseline
+
+On 2026-10-16, the backend maintainer explicitly approved the documented MVP
+implementation policies, the final D8 mappings and precedence supplied for this
+task, and the approved entity relationship specification. This is the recorded
+backend confirmation for BE-01. Preserve the frontend lead's previously recorded
+approval of the baseline and intended domain alignment; no new frontend review,
+approval date, or separate approval of additional functionality is asserted.
+
+The approved public baseline is `POST /api/v1/evaluations` in
+`API_CONTRACT.md` sections 2–8, with section 10's domain/MVP boundary and section
+9's implementation deferrals. It preserves all request/response field names,
+`github`/`sample`, the three criterion statuses, required nullable evidence URLs,
+and strict `human_review_required: true`. `repository_url` is required and
+validated in both modes. No additional public evidence, error, relationship, or
+persistent Milestone identifier fields are approved. The domain source's obsolete
+"Proposed" metadata does not reopen the recorded approval.
+
+### D8 final policy
+
+| Application error | HTTP status |
+| --- | --- |
+| `INVALID_REQUEST` | `400` |
+| `INVALID_REPOSITORY_URL` | `400` |
+| `REPOSITORY_ACCESS_DENIED` | `403` |
+| `EVIDENCE_RETRIEVAL_FAILED` | `502` |
+| `EVALUATION_FAILED` | `502` |
+
+An upstream timeout uses `504`, retaining `EVIDENCE_RETRIEVAL_FAILED` or
+`EVALUATION_FAILED` according to the failed operation. The public envelope remains
+`{"error":{"code":"EXISTING_ERROR_CODE","message":"Human-readable description"}}`.
+No new public codes or response fields are introduced. A completed report,
+including an honest limited report, uses `200`.
+
+Deterministic stage order:
+
+1. Validate incoming request fields and `evidence_source`.
+2. Validate the repository URL.
+3. Resolve repository access and permissions when required by the selected source.
+4. Retrieve evidence when required.
+5. Perform the AI evaluation.
+6. Return the contract-compliant report.
+
+A failure at an earlier stage takes precedence and later stages must not run.
+Within request validation, use the most specific applicable documented code:
+invalid/unsupported repository URLs use `INVALID_REPOSITORY_URL` rather than
+`INVALID_REQUEST`, including when a validation result also contains generic field
+errors. Malformed JSON, missing required fields, and other field/source errors use
+`INVALID_REQUEST`. URL errors detected by Pydantic during parsing follow the same
+rule. No automatic retry or fallback may disguise the original failure. Sample
+mode validates the required URL but does not require live repository access or
+retrieval. FastAPI defaults must not leak a different validation envelope or
+override the approved `400` policy.
+
+### Individual acceptance assessment
+
+Source: [GitHub issue #2](https://github.com/VeriCommit/vericommit-backend/issues/2),
+retrieved during this finalization. The nine acceptance criteria below preserve
+the issue's requirements. The issue's older pending-decision narrative predates
+the approvals recorded here; its acceptance criteria are not changed. Its GitHub
+checkboxes and open state are left for the maintainer.
+
+| # | Acceptance criterion | Assessment and evidence |
+| --- | --- | --- |
+| 1 | Frontend and backend leads agree on `POST /api/v1/evaluations`. | PASS — previously recorded frontend approval plus the backend maintainer's explicit final confirmation above; approved baseline in `API_CONTRACT.md`. |
+| 2 | Request and response fields match the finalized contract. | PASS — inspected `Milestone`, `EvaluationRequest`, `EvidenceReference`, `CriterionResult`, and `EvaluationResponse`; published examples round-trip, required fields and nesting match. Runtime request/result correlation is deferred. |
+| 3 | `supported`, `insufficient_evidence`, and `uncertain` are the only allowed criterion statuses. | PASS — `CriterionStatus` is exactly these three literals; allowed and invalid values are tested. |
+| 4 | Sample and GitHub evidence modes are defined. | PASS — exactly `github`/`sample` selectors, required valid URL in both, explicit sample labels, deterministic sample selection, and no silent live-to-sample fallback. Providers remain later work. |
+| 5 | Validation and error behavior is documented. | PASS — strict field/source/URL rules, minimum criterion count, unchanged wording/order/duplicates, existing unset maximum bounds, and final D8 code/HTTP/timeout/precedence policy are documented. Handlers are deferred. |
+| 6 | Pydantic schema definitions have automated tests. | PASS — complete and targeted Pytest schema runs pass; coverage includes examples, invalid inputs, statuses, nullable URLs, extra-field rejection, and strict human review. |
+| 7 | The contract documentation is updated. | PASS — final approval, baseline, D1–D8 decisions, domain boundary, and deferred runtime responsibilities are recorded in the contract and this review. |
+| 8 | Evaluation schemas follow the published contract without adding Grantor, Grantee, Funding Agreement, or persistent Milestone identifiers. | PASS — inspected model field sets contain no such fields; strict extra-field rejection also applies to the nested milestone. Existing relationship-field rejection tests pass. |
+| 9 | Every evidence reference includes a present but nullable `url` field; URL-less sample evidence is explicitly labelled and uses `"url": null` rather than a fabricated URL. | PASS — required `NonBlankString \| None` field with no default; missing URL rejection, labelled sample round-trips, null preservation, and genuine URL example preservation are tested. Runtime provenance/labelling/authenticity checks are deferred. |
+
+Strict human review is independently verified for Python and JSON inputs: only the
+literal boolean `true` is accepted; false, missing, null, numeric equivalents, and
+string equivalents are rejected. The error model preserves only nested `code`
+and `message` and rejects extra fields; runtime handlers must select from the five
+approved codes. No schema behavior was changed during final confirmation.
+
+### Implementation boundary and publication readiness
+
+PR #14 (merge `1d2b8cb26d90653d6276229bff65d1c00e95f069`) and PR #15
+(merge `f2c2b4a93b2cf348cb0c9fea51f2a0f73cdb286d`) are both merged and verified
+ancestors of the current `staging` branch. Their schema work and strict-human-review
+fix are present. No endpoint or service capability is inferred from those merges.
+
+BE-03 (#4) owns the endpoint and validation integration; BE-05 (#6) owns deterministic
+sample evidence; BE-07 (#8) owns synchronous AI evaluation, unique IDs and criterion
+correlation; BE-09 (#10) owns report assembly and disclosures; BE-10 (#11) owns the
+approved error handlers, precedence and timeouts. Evidence normalization/live
+retrieval and grounding checks remain BE-04 (#5), BE-06 (#7), and BE-08 (#9).
+These are implementation deferrals, not unsatisfied BE-01 schema/contract criteria.
+Funding Agreement management, database implementation, ownership changes and
+domain workflow tests are outside this task and the evaluation payload.
+
+Verification on Python 3.14.6 with Pydantic 2.14.1, Pytest 8.4.2 and Ruff 0.17.1:
+the complete Pytest suite passed (117 tests), the targeted schema suite passed
+(117 tests), Ruff lint passed, and Ruff formatting passed (10 files already
+formatted). The initial format check detected mixed line endings in the updated
+schema comments; formatting that file corrected them without model changes.
+Git diff/whitespace review passed, with only Git's LF-to-CRLF conversion notices.
+Exact commands and results are recorded in the completion report.
+
+**Recommendation: READY TO CLOSE after verification and publication.** Issue #2
+must remain open until the maintainer authorizes closure. No BE-02 work is started.

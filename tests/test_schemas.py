@@ -306,18 +306,33 @@ def test_human_review_field_must_be_present(response_data, json_input):
     assert exc_info.value.errors()[0]["loc"] == ("human_review_required",)
 
 
-def test_criterion_order_and_duplicates_are_preserved(request_data, response_data):
-    criteria = ["First", "Second", "First"]
+@pytest.mark.parametrize("json_input", [False, True], ids=["python", "json"])
+def test_criterion_order_and_duplicates_are_preserved(
+    request_data, response_data, json_input
+):
+    criteria = [" First  ", "Second\ncriterion", " First  "]
     request_data["milestone"]["acceptance_criteria"] = criteria
     for result, criterion in zip(
         response_data["criteria_results"], criteria, strict=True
     ):
         result["criterion"] = criterion
 
-    request = EvaluationRequest.model_validate(request_data)
+    request = (
+        EvaluationRequest.model_validate_json(json.dumps(request_data))
+        if json_input
+        else EvaluationRequest.model_validate(request_data)
+    )
     response = EvaluationResponse.model_validate(response_data)
     assert request.milestone.acceptance_criteria == criteria
     assert [result.criterion for result in response.criteria_results] == criteria
+
+
+@pytest.mark.parametrize("evaluation_id", ["", " \t\n", None, 42])
+def test_evaluation_id_must_be_a_nonblank_string(response_data, evaluation_id):
+    response_data["evaluation_id"] = evaluation_id
+    with pytest.raises(ValidationError) as exc_info:
+        EvaluationResponse.model_validate(response_data)
+    assert exc_info.value.errors()[0]["loc"] == ("evaluation_id",)
 
 
 @pytest.mark.parametrize("field", ["grantor_id", "grantee_id", "funding_agreement_id"])

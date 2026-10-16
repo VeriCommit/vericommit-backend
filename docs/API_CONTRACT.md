@@ -1,21 +1,29 @@
 ﻿# API Contract  VeriCommit MVP
 
-**Status:** Frontend-approved evaluation contract and domain alignment; backend lead confirmation and unresolved technical decisions remain pending before joint finalization.
+**Status:** Approved MVP evaluation contract baseline; D1–D8 are resolved at the
+policy level. Runtime implementation is deferred to the backend issues listed in
+section 9.
+
+**Final confirmation (2026-10-16):** The backend maintainer explicitly approves
+the documented MVP policies and the D8 HTTP mappings, timeout handling, and error
+precedence below. This records backend confirmation alongside the frontend lead's
+previously recorded approval; it does not claim a new frontend review or approval
+of additional fields, services, or grant-management functionality.
 
 The maintainer confirms that the frontend lead has approved both the evaluation contract and the intended domain-model alignment. No additional frontend reapproval is required for these documentation changes. Product approval of the domain specification is also confirmed. The evaluation interface remains unchanged.
 
 | Approval | Current status |
 |---|---|
 | Frontend lead | Baseline and intended domain alignment approved; no additional reapproval required. |
-| Backend lead | No explicit approval recorded; confirmation pending. |
+| Backend maintainer / backend confirmation | Explicit approval of the documented MVP policies and final D8 error policy recorded above. |
 | Domain specification | Officially approved, as confirmed by the maintainer. |
-| Overall API contract | Frontend approval recorded; backend confirmation and unresolved technical decisions pending. |
+| Overall API contract | Approved public MVP baseline: `POST /api/v1/evaluations`, sections 2–8 below, and the domain/MVP boundary in section 10. |
 
 ## 1. Purpose
 
-This document defines the proposed request and response between the VeriCommit frontend and backend for evaluating a software-project milestone.
+This document defines the approved request and response between the VeriCommit frontend and backend for evaluating a software-project milestone.
 
-The contract is intentionally small for the hackathon MVP. Both teams should agree on any changes before relying on the interface.
+The contract is intentionally small for the hackathon MVP. Future public interface changes require explicit agreement; this confirmation preserves the existing fields, source values, statuses, evidence URL nullability, error envelope, and human-review requirement.
 
 ## 2. Evaluation Endpoint
 
@@ -24,6 +32,15 @@ The contract is intentionally small for the hackathon MVP. Both teams should agr
 - **Content-Type:** `application/json`
 
 The endpoint evaluates available project evidence against previously agreed milestone acceptance criteria.
+
+### Approved MVP execution policy (D1)
+
+Evaluation completes synchronously within the request/response interaction. Each
+successful evaluation returns a unique, nonblank `evaluation_id` string. No UUID
+format, background queue, polling route, or persistence is required. ID generation
+and uniqueness are evaluation-service responsibilities; the schema validates the
+required nonblank string, not uniqueness across evaluations. This policy does not
+claim that an evaluation service or endpoint is already implemented.
 
 ## 3. Request
 
@@ -58,6 +75,46 @@ The endpoint evaluates available project evidence against previously agreed mile
 | `evidence_source` | string | Yes | `github` or `sample` |
 
 For `evidence_source: "sample"`, the backend must use clearly labelled demonstration evidence rather than pretending to retrieve live GitHub data.
+
+### Approved MVP request validation (D2)
+
+The maintainer approves the existing strict Pydantic behavior as the MVP default:
+
+- Reject missing required fields, null required values, wrong JSON types,
+  whitespace-only required strings, and undocumented fields; do not coerce types.
+- Require at least one acceptance criterion, with every criterion a nonblank
+  string. Preserve wording, whitespace within nonblank strings, ordering, and
+  duplicates exactly; do not trim, rewrite, or silently deduplicate criteria.
+- Accept only `github` and `sample` as evidence-source values.
+- Retain the implemented GitHub URL validator: HTTPS, a case-insensitive
+  `github.com` host without credentials or an explicit port, and an owner/repository
+  path with an optional trailing slash. Owner names begin/end with an ASCII
+  alphanumeric character and otherwise contain alphanumerics or hyphens; repository
+  names contain ASCII alphanumerics, underscores, dots, or hyphens and cannot be
+  `.` or `..`. Reject query/fragment delimiters, whitespace, character codes below 32,
+  and additional path segments. Preserve the supplied URL without normalization.
+- Existing limits are a minimum of one criterion and nonblank required strings.
+  No numeric maximum field length, criterion count/length, or request-size limit
+  is currently imposed by these schemas; no new bounds are introduced here.
+
+`repository_url` remains required in both modes under the current field table.
+This is the confirmed D3 MVP limitation: sample mode still requires a valid
+repository URL even though it does not fetch that repository. Do not invent a URL
+to satisfy validation. Any future omission/null policy requires an explicit contract
+amendment. Public field names and shapes are unchanged.
+
+### Evidence mode and provenance policies (D5–D6)
+
+Both approved selector values, `github` and `sample`, are supported by the contract.
+GitHub retrieval failure must not silently substitute sample evidence. BE-05 owns
+deterministic sample fixture selection; this policy does not implement a provider.
+
+Preserve actual source information and stable references internally. Do not invent
+URLs or source references, or add public provenance fields. Source disclosure is a
+current interface limitation: evidence items have no dedicated public actual-source
+field. Later evidence/report services must clearly disclose source and limitations
+through existing titles and report limitations, without changing evidence `type`
+into a source selector. A null URL alone is not a sample label.
 
 ## 4. Response
 
@@ -128,6 +185,19 @@ Illustrative sample evidence reference (not verified project evidence):
 
 ## 5. Allowed Criterion Statuses
 
+### Confirmed response policy (D4)
+
+Preserve every response field and nesting shown above. All shown fields are
+required; collections are arrays and may be empty, not null. Evidence `type`
+remains a nonblank string rather than a new enum. Each result preserves the
+original criterion wording and input order, including duplicate criteria; the
+evaluation service owns runtime criterion/result correlation. Schemas preserve
+list order but do not independently compare a response with its request.
+
+`human_review_required` must be the literal boolean `true`, not numeric or string
+equivalents. Do not add persistent project, Milestone, Grantor, Grantee, or Funding
+Agreement identifiers. The present-but-nullable evidence `url` rule is unchanged.
+
 - `supported`  available evidence supports the criterion.
 - `insufficient_evidence`  available evidence does not demonstrate the criterion.
 - `uncertain`  evidence exists, but its meaning or sufficiency is unclear.
@@ -149,7 +219,7 @@ Use a consistent error structure.
 }
 ```
 
-Suggested error codes:
+Approved public application error codes:
 
 - `INVALID_REQUEST`  required input is missing or invalid.
 - `INVALID_REPOSITORY_URL`  repository URL is invalid or unsupported.
@@ -158,6 +228,61 @@ Suggested error codes:
 - `EVALUATION_FAILED`  evaluation could not be completed.
 
 The frontend should display an understandable message and allow the user to recover where possible.
+
+### Reports versus errors (D7)
+
+When retrieval succeeds but available evidence is genuinely insufficient, return
+an honest limited report using the existing criterion statuses, explanations,
+limitations, and next steps. Missing evidence is not proof of missing work.
+When required evidence retrieval or AI evaluation fails, return the corresponding
+error rather than presenting the failure as an empty successful retrieval or proof
+that no work exists. Do not silently switch to sample evidence after a live failure.
+
+### Approved error transport and selection policy (D8)
+
+The confirmed error envelope remains `error.code` plus `error.message`, with no
+additional public fields or codes. The maintainer approves these mappings for
+BE-10's later FastAPI exception handlers; framework defaults do not override them:
+
+| Outcome / code | Approved HTTP status |
+| --- | --- |
+| Completed evaluation, including an honest limited report | `200` |
+| Malformed JSON / `INVALID_REQUEST` | `400` |
+| Missing or invalid fields / `INVALID_REQUEST` | `400` |
+| Unsupported or invalid repository URL / `INVALID_REPOSITORY_URL` | `400` |
+| Repository access unavailable / `REPOSITORY_ACCESS_DENIED` | `403` |
+| Required retrieval failed / `EVIDENCE_RETRIEVAL_FAILED` | `502` |
+| Evaluation failed / `EVALUATION_FAILED` | `502` |
+| Upstream evidence retrieval timeout / `EVIDENCE_RETRIEVAL_FAILED` | `504` |
+| Upstream AI evaluation timeout / `EVALUATION_FAILED` | `504` |
+
+An upstream timeout changes the HTTP status to `504`, retaining the code for the
+failed operation. It does not introduce a timeout code or any response fields.
+
+Select errors deterministically in this workflow order:
+
+1. Validate incoming request fields and `evidence_source`.
+2. Validate the repository URL (required in both evidence modes).
+3. Resolve repository access and permissions when required by the selected source.
+4. Retrieve evidence when required.
+5. Perform the AI evaluation.
+6. Return the contract-compliant report.
+
+A failure at an earlier stage takes precedence: later stages must not run after
+that failure. Within request validation, select the most specific applicable
+documented code. If validation reports an invalid or unsupported repository URL,
+use `INVALID_REPOSITORY_URL` rather than the generic `INVALID_REQUEST`, including
+when the validation result also contains generic field errors. Malformed JSON,
+missing required fields, and other field/source validation failures use
+`INVALID_REQUEST`. This code-selection rule also applies when Pydantic detects URL
+errors during request parsing; it does not authorize access, retrieval, or AI work
+after a validation failure.
+
+No automatic retry or fallback may disguise the original failure. In particular,
+an access, retrieval, or AI failure must not be replaced by sample evidence or a
+successful report. Explicit sample mode does not require live repository access
+or retrieval. No exception handlers or structured field-error additions are
+implemented by this documentation or by the Pydantic error-envelope models.
 
 ## 7. Evaluation Rules
 
@@ -177,17 +302,34 @@ The frontend should display an understandable message and allow the user to reco
 - Do not log secrets or unnecessary private repository content.
 - Clearly disclose whether evidence came from GitHub or sample data.
 
-## 9. Implementation Agreement
+## 9. Final Agreement and Implementation Boundary
 
-Before implementation, Joshua and Wale should confirm:
+The approved baseline is the interface in sections 2–8, constrained by section 10.
+The frontend lead's existing approval and the backend maintainer's explicit policy
+and D8 approval finalize this MVP contract. D1–D8 are resolved as documented, not
+as evidence that the full workflow exists. See
+[the final review confirmation](API_CONTRACT_REVIEW.md#9-final-contract-confirmation-and-be-01-assessment)
+for the individual policy statuses and BE-01 acceptance assessment.
 
-1. The endpoint path and request fields.
-2. The response schema and criterion status values.
-3. How sample evidence is selected.
-4. How errors are returned and displayed.
-5. Whether the first demo uses live GitHub retrieval, sample evidence, or both.
+BE-01 provides tested Pydantic request, response, evidence, criterion, and nested
+error models. The error models validate the envelope and nonblank code/message
+strings; they do not select a public code or HTTP status. Only the five approved
+codes above may be emitted by the future runtime implementation. The schemas do
+not prove evidence authenticity, sample labelling, source provenance, or correlation
+of a response to its request.
 
-Any agreed changes should be reflected in this document and communicated to both teams.
+| Later issue | Runtime responsibility, not implemented by BE-01 |
+| --- | --- |
+| BE-03 (#4) | FastAPI endpoint, request parsing/validation integration, and evaluation-service boundary. |
+| BE-04 (#5) / BE-06 (#7) | Internal evidence normalization/provenance and authorized live GitHub retrieval. No public provenance fields are added. |
+| BE-05 (#6) | Deterministic sample fixture/provider selection and explicit sample labels. |
+| BE-07 (#8) | Synchronous AI evaluation, unique evaluation ID generation, criterion wording/order/correlation, and provider-failure handling. |
+| BE-08 (#9) / BE-09 (#10) | Evidence-grounding validation and report assembly, genuine references, source/limitation disclosure, uncertainty, and mandatory human review. |
+| BE-10 (#11) | Centralized error handlers, approved code/HTTP mapping and precedence, timeouts, and safe failure disclosure. |
+
+Fixture content, provider internals, and runtime checks remain implementation work
+within these policies. New public fields, provenance serialization extensions, or
+relationship-management behavior require separately approved contract changes.
 
 ## 10. Domain Model Alignment
 
