@@ -52,15 +52,16 @@ retrieval or funding-agreement storage is implemented.
 both `github` and `sample`; sample mode
 does not imply live retrieval. Model validation cannot establish that an evidence
 URL is genuine, that a report is grounded in evidence, or that a criterion result
-matches a particular request; those checks belong to later services.
+matches a particular request; grounding and criterion correlation are enforced by
+the evaluation services described below.
 
 ## Evaluation endpoint
 
 `POST /api/v1/evaluations` validates the approved request and delegates to the async
 `EvaluationService.evaluate(request)` interface. Routing is in
 `api/routes/evaluations.py`; the service interface is in `services/evaluation.py`.
-Use FastAPI's `get_evaluation_service` dependency to connect a later implementation;
-tests inject a fake service through `app.dependency_overrides`.
+FastAPI's `get_evaluation_service` dependency connects the configured AI evaluator;
+tests can replace its AI or evidence boundary through `app.dependency_overrides`.
 
 Example request (illustrative project context only):
 
@@ -108,6 +109,17 @@ one independent actual AI call, including duplicates; no fixed criterion statuse
 are used. Evaluation finishes before the response, with a unique UUID-derived ID.
 There is no queue, persistence, automatic retry or mock fallback.
 
+Alternatively, the smoke client validates the actual response schema, original
+criteria, and sample references before printing the report:
+
+```sh
+python examples/smoke_sample.py
+```
+
+The server must already be running with provider credentials. This command has no
+mock mode and exits unsuccessfully on an API error; it never fills in findings.
+Use `--base-url` for a different backend address and `--timeout` for a longer wait.
+
 The SDK adapter is replaceable through `CriterionAIClient.assess`. Credentials are
 server-only, excluded from settings serialization and repr. No repository URL,
 author metadata, credentials or unrelated criteria are sent in the prompt; the
@@ -118,6 +130,14 @@ retention. The SDK client is closed after the request.
 The separate Python grounding validator checks exact criterion text, authorized
 IDs, exact contiguous quotes, citation requirements, uncertainty disclosure and
 known unsafe output patterns. AI-supplied URLs and extra output fields are rejected.
+Whole cited records (including their titles) are checked for known evaluator
+instructions, so a harmless fragment cannot launder an instruction-bearing record.
+Activity-count-only excerpts cannot independently support completion. Recognizable
+commit/file/PR/namespace references in AI prose must occur in cited source records;
+funding-relationship assertions and self-asserted verification are rejected.
+Known instructions attempting to waive human review are rejected in reasoning,
+gaps, suggestions, and cited records; AI output cannot set the report's mandatory
+`human_review_required: true` field.
 Public references are rebuilt exclusively from retrieved records. Model reasoning
 is labelled **AI interpretation, not verified fact**; quoted text establishes only
 what the source says. These structural checks and targeted policy rules are not a
@@ -127,6 +147,9 @@ paraphrase. Human review remains mandatory; reports grant no funding authority.
 `supported`/`uncertain` require evidence citations; non-supported outcomes require
 explicit gaps or ambiguities. Summaries count the actual validated outcomes and
 retain uncertainty. Sample provenance and fixture limitations are always included.
+AI-reported gaps appear in the criterion explanation and in limitations indexed by
+criterion position, including duplicates; they are labelled as unverified AI output.
+AI next steps are also explicitly labelled as suggestions for human review.
 Successful zero-evidence retrieval may produce an honest limited report after AI
 assessment; retrieval failures never become empty successful retrievals.
 
@@ -137,8 +160,16 @@ the explicit error above. GitHub mode returns `EVIDENCE_RETRIEVAL_FAILED`/502 an
 never uses sample fallback. Error responses contain no provider details or excerpts.
 
 Verification uses mocked upstream HTTP through the real SDK and actual application
-services. **No live AI call has been verified in this sprint: no key was configured.**
-Once credentials are available, the curl command above is the live smoke test.
+services:
+
+```sh
+python -m pytest -q tests/test_ai.py tests/test_grounding.py tests/test_ai_evaluations.py
+```
+
+**No live AI call has been verified: no key was configured in the implementation
+environment.** Mocked tests verify transport, evaluation, grounding, and report
+serialization, not model judgment or resistance to all adversarial prompts. Once
+credentials are available, the curl command or smoke client above is the live test.
 
 Invalid JSON, missing/null/wrong-type fields, blank required strings, empty or
 invalid criteria, unsupported sources, and undocumented fields return HTTP 400

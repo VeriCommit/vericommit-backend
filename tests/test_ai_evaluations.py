@@ -92,6 +92,11 @@ def test_configured_endpoint_real_sdk_and_services_with_mocked_upstream(
     assert "uncertain" in report["overall_summary"]
     assert any("synthetic" in item for item in report["limitations"])
     assert report["suggested_next_steps"]
+    assert any(
+        "Criterion 2 — AI-reported gap/uncertainty (not verified fact)" in limitation
+        for limitation in report["limitations"]
+    )
+    assert "AI-reported gap/uncertainty" in report["criteria_results"][1]["explanation"]
     for result in report["criteria_results"]:
         for evidence in result["evidence"]:
             assert set(evidence) == {"type", "title", "url"}
@@ -263,3 +268,23 @@ def test_invalid_request_stops_configured_ai(ai_request):
         )
     assert response.status_code == 400
     ai.assess.assert_not_awaited()
+
+
+def test_replaceable_client_cannot_bypass_structured_validation(
+    ai_request, assessment_payload
+):
+    assessment = CriterionAssessment.model_validate(
+        assessment_payload(ai_request.milestone.acceptance_criteria[0])
+    )
+    ai = AsyncMock(spec=CriterionAIClient)
+    # Pydantic model_copy deliberately bypasses validators. The service must not.
+    ai.assess.return_value = assessment.model_copy(update={"status": "approved"})
+    app = create_app(Settings(_env_file=None))
+    app.dependency_overrides[get_ai_client] = lambda: ai
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/evaluations", json=ai_request.model_dump(mode="json")
+        )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "EVALUATION_FAILED"
+    ai.assess.assert_awaited_once()
