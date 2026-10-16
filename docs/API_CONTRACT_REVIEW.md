@@ -1,7 +1,15 @@
 # BE-01 / Milestone 1.1 — Evaluation API Contract Review
 
-**Status: Source review complete; technical recommendations PROPOSED. Contract
-approval pending from both leads. Not a finalized API contract.**
+**Status: Frontend approval confirmed for the baseline and domain alignment;
+backend confirmation pending. Unresolved technical recommendations remain PROPOSED.**
+
+The maintainer confirms frontend lead approval of the evaluation baseline and
+intended domain alignment, plus product approval of the domain model. No additional
+frontend reapproval is required for these documentation changes. The original review
+below records the earlier source-review baseline. Current approval status and the
+remaining confirmation checklist are in section 6.
+No resolutions for D1–D8 were supplied by that approval statement, so their technical
+recommendations are not automatically adopted.
 
 This review preserves the original documented interface and product rules. An
 "established" requirement below means it appears in the supplied documentation;
@@ -11,7 +19,7 @@ at Milestone 1.1.
 
 ## 1. Sources inspected and reconciliation
 
-All five required files are now present and have been read in full. The previous
+All five original review files are present and have been read in full. The previous
 missing-document blocker is resolved. No repository `AGENTS.md` was found.
 
 | Document | Relevant sections / role |
@@ -29,7 +37,8 @@ Structured per-criterion evidence and a top-level limitations array already
 exist in the response example. Earlier open questions about criterion shape,
 status definitions, and evidence/limitations placement are answered by these
 sources; no new criterion IDs or replacement shapes are proposed. No
-authoritative document is changed.
+authoritative interface was changed by that review. Section 6 records the subsequent
+documentation-only domain alignment.
 
 ## 2. Requirements verified against the sources
 
@@ -172,7 +181,10 @@ None of these HTTP statuses is specified by the original contract.
 | Evidence retrieval cannot complete / `EVIDENCE_RETRIEVAL_FAILED` | `502` | Agree access-denial precedence and handling of transient failures/timeouts; limited successful reports are governed by D7. |
 | Evaluation cannot complete / `EVALUATION_FAILED` | `500` | Generic public failure message; confirm any distinction for upstream evaluation-service failures without changing the code definition. |
 
-## 4. Approval checklist and handoff
+## 4. Original review approval checklist and handoff
+
+This section preserves the original review's pending decisions. See section 6 for
+the maintainer-confirmed frontend approval and the current confirmation status.
 
 The source-review blocker is resolved. Final agreement is still pending. Both
 technical leads must confirm the baseline and resolve the applicable decisions;
@@ -194,12 +206,13 @@ the product lead should help reconcile D3 and the first-demo choice.
 - [ ] After approval, align examples for live/sample evidence, limited evidence,
   validation errors, access/retrieval failures, and evaluation failures.
 
-**Backend lead approval: PENDING. Frontend lead approval: PENDING.**
-`API_CONTRACT.md` remains proposed and unchanged. Review preparation is complete;
-contract finalization is not. Milestone 1.2 requires explicit authorization even
-after the leads agree.
+**Current backend lead confirmation: PENDING. Frontend approval: CONFIRMED for the
+baseline and intended domain alignment; no additional reapproval required.**
+`API_CONTRACT.md` records that approval and the remaining decisions in section 6.
+Contract finalization is not recorded. Milestone 1.2 requires explicit authorization
+even after the leads agree.
 
-## 5. Verification and scope
+## 5. Original review verification and scope
 
 Only `docs/API_CONTRACT_REVIEW.md` is updated in this continuation. Verification:
 
@@ -214,3 +227,129 @@ Only `docs/API_CONTRACT_REVIEW.md` is updated in this continuation. Verification
 No endpoint, Pydantic schema, dependency, database, frontend functionality, GitHub
 retrieval, or AI integration is introduced. No credentials or secrets are added.
 Work stops at Milestone 1.1.
+
+## 6. Approved Domain Model Alignment
+
+### Sources and approval provenance
+
+All six requested files have been read, including
+[ENTITY_RELATIONSHIPS.md](domain-model/ENTITY_RELATIONSHIPS.md), sections 2, 4–9.
+The domain specification is **officially approved**, as confirmed by the maintainer,
+who also confirms frontend approval of the evaluation baseline and intended domain
+alignment. No additional frontend reapproval is required for these changes.
+No approval date or review reference
+was supplied; none is invented here. The domain source's header and governance text
+still describe it as proposed. The maintainer explicitly acknowledges this metadata
+exception; it is not a publication blocker and must not be reconciled in this task.
+This amendment leaves the supplied source unchanged.
+
+Product approval of relationships is distinct from API amendment approval, and
+specification approval is distinct from implementation. The source expressly
+defers correction/reassignment and agreement-transfer workflows beyond the MVP.
+
+| Approval | Current status |
+| --- | --- |
+| Domain specification | Officially approved; source metadata still says proposed. |
+| Frontend lead | Baseline and intended alignment approved; no additional reapproval required. |
+| Backend lead | No explicit approval recorded; confirmation pending. |
+| Overall API contract | Frontend approval recorded; backend confirmation and technical resolutions pending. |
+
+### Amendment summary and MVP boundary
+
+`API_CONTRACT.md` section 10 now documents:
+
+- Exactly one agreement per persistent Milestone at a time; exactly one responsible Grantor
+  entity and one Grantee per agreement.
+- Multiple agreements per Grantor/Grantee, concurrent independent funding of
+  different Milestones, and formally defined Collaborative Grantors counting as one
+  responsible entity. Sequential funding is allowed but not required.
+- Agreement-scoped responsibilities and evidence, authorized changes, preserved
+  relationship history and decision traceability, and scoped cross-funder access.
+- The prohibition on directly moving an approved Milestone to another agreement,
+  and the authorization, Grantee acknowledgement, and audit requirements for transfers.
+- The current payload's limited evaluation role and the deferral of ownership,
+  reassignment, transfer, identity-resolution, and permission contract extensions.
+
+The route, request/response fields, examples, evidence-source values, statuses,
+error codes, and mandatory human review are unchanged. No domain IDs, CRUD routes,
+database schema, ownership operations, or automatic approval behavior are added.
+The domain document does not resolve validation limits, sample selection, evidence
+provenance serialization, HTTP mappings, or the other technical questions in D1–D8.
+Those questions remain open unless separately documented resolutions are supplied.
+
+The MVP scope requires an evidence assessment and a report supporting a human
+decision, not full grant administration (MVP scope sections 2–4). The request is
+an evaluation input: it neither establishes nor changes persistent Milestone
+ownership. The endpoint does not create, transfer, or manage Funding Agreements.
+Full agreement lifecycle management, authorized transfers, and Milestone
+reassignment are deferred. No relationship IDs are needed in the current payload
+to document these constraints, and none are introduced as required or optional
+fields by this amendment.
+
+When persistent relationships are implemented in a later approved scope, the
+domain invariants require one agreement per Milestone, authorized changes,
+history/decision traceability, and scoped visibility. These are requirements for
+that implementation, not claims of current persistence, access enforcement, or
+available management workflows. Agreement lifecycle statuses and permissions need
+their own approved specification; they must not become evaluation criterion statuses.
+
+### D1–D8 review and Milestone 1.2 readiness
+
+Each decision is reviewed individually below. **All remain unresolved in this review**: domain
+approval and frontend approval of the unchanged interface/alignment do not supply
+item-level technical resolutions.
+"Schema blocker" identifies choices needed to define exact request/response/error
+models; it does not authorize implementation after they are resolved.
+
+| ID | Remaining decision | Pydantic schema impact / readiness |
+| --- | --- | --- |
+| D1 | Confirm complete-response execution and opaque `evaluation_id` semantics/guarantees. | Not an independent field-shape blocker if the documented string is retained; no persistence or UUID constraint is approved. Needed for overall contract confirmation. |
+| D2 | Agree blank/null/type/unknown-field handling, numeric limits, duplicate criteria, and URL forms/normalization. | **Blocks exact request validation models**: required fields and types are known, but validators and limits are not approved. |
+| D3 | Resolve the unconditional required `repository_url` versus repository-or-sample inputs, including omission/null semantics. | **Blocks sample-mode request requiredness** and mode-specific validation. Preserve the current required field until an amendment is approved. |
+| D4 | Confirm response requiredness/nullability, array semantics, evidence type values, criterion ordering/correlation, and duplicate handling. | **Blocks exact response models**, especially required/optional fields and evidence constraints. Ordering/correlation also needs a documented behavioral agreement. |
+| D5 | Choose first-demo enabled modes, deterministic sample selection, unsupported-mode errors, and explicit versus automatic fallback. | Primarily a workflow decision if the existing selector is retained. Any new selection field or altered values would first need explicit contract approval; none is introduced. |
+| D6 | Agree actual-source disclosure and URL-less sample representation, including any explicit provenance-field addition. | **Blocks the final evidence-reference shape**: `url` requiredness/nullability and any additional reference fields remain undecided. |
+| D7 | Define partial/zero-evidence reports versus retrieval/evaluation errors and the required disclosures. | Primarily an outcome/workflow boundary, not a new model or criterion status. Confirm which existing response shape applies; do not invent an error or outcome enum. |
+| D8 | Approve HTTP mappings, overlapping-error precedence, and whether structured validation details are needed. | Existing `error.code`/`error.message` shape is known. **Conditional error-model blocker** if structured details are selected; their name/type must be agreed. HTTP mappings alone do not change Pydantic fields. |
+
+Milestone 1.2 remains gated by recorded backend confirmation, at least the schema
+choices in D2–D4 and D6 (plus D8 if details are added), and explicit maintainer
+authorization. Resolving field-shape blockers does not silently approve the other
+behavioral decisions or begin schema implementation.
+
+### Approval and remaining confirmation checklist
+
+- [x] Preserve the existing evaluation interface and link the domain source.
+- [x] Document approved cardinalities, concurrent funding, Collaborative Grantors,
+  history constraints, and scoped visibility without introducing new payload fields.
+- [x] Distinguish domain requirements from implemented or deferred workflows.
+- [x] Frontend approval of the baseline and intended alignment is confirmed by the
+  maintainer; no further frontend reapproval is required for these documentation changes.
+- [ ] Backend lead confirms alignment, the unchanged interface, and deferred scope.
+- [ ] Both leads confirm that no agreement-management behavior, persistent ownership
+  changes, relationship IDs, or new evaluation statuses are implied by the amendment.
+- [ ] Both leads supply or confirm explicit resolutions for D1–D8 before any
+  technical recommendation is promoted into the contract.
+- [x] Treat the source's obsolete proposed-status wording as an acknowledged
+  exception; preserve the officially approved specification unchanged.
+- [ ] Record backend confirmation and approved technical resolutions before declaring
+  joint finalization. Frontend approval for this alignment is already confirmed.
+
+Only `API_CONTRACT.md` and this review are updated for this amendment. The MVP scope,
+AI rules, backlog, and supplied domain source are preserved. Verification results:
+
+- Manual cross-check against the MVP scope, evaluation rules, and approved domain
+  specification: consistent; ownership and lifecycle workflows remain outside this
+  evaluation endpoint.
+- Git diff review: only these two tracked documentation files changed. Endpoint,
+  field definitions, JSON examples, criterion statuses, and error codes are unchanged.
+- Relative links in the two updated documents resolve to the supplied local
+  Markdown files; headings, tables, and list formatting were reviewed.
+- `git diff --check`: passed, with only Git's LF-to-CRLF conversion notices.
+- Before/after content hashes match for the domain source, MVP scope, AI rules,
+  and backlog. The supplied domain source remains a pre-existing untracked file.
+- Runtime tests: not applicable to this documentation-only amendment.
+
+No application implementation or Milestone 1.2 work is introduced. This amendment
+is ready for publication with frontend approval recorded; unresolved technical
+choices and backend confirmation are not represented as finalized.

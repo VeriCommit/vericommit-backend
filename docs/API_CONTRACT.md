@@ -1,6 +1,15 @@
 ﻿# API Contract  VeriCommit MVP
 
-**Status:** Proposed  backend and frontend leads must review and agree before implementation.
+**Status:** Frontend-approved evaluation contract and domain alignment; backend lead confirmation and unresolved technical decisions remain pending before joint finalization.
+
+The maintainer confirms that the frontend lead has approved both the evaluation contract and the intended domain-model alignment. No additional frontend reapproval is required for these documentation changes. Product approval of the domain specification is also confirmed. The evaluation interface remains unchanged.
+
+| Approval | Current status |
+|---|---|
+| Frontend lead | Baseline and intended domain alignment approved; no additional reapproval required. |
+| Backend lead | No explicit approval recorded; confirmation pending. |
+| Domain specification | Officially approved, as confirmed by the maintainer. |
+| Overall API contract | Frontend approval recorded; backend confirmation and unresolved technical decisions pending. |
 
 ## 1. Purpose
 
@@ -161,3 +170,66 @@ Before implementation, Joshua and Wale should confirm:
 5. Whether the first demo uses live GitHub retrieval, sample evidence, or both.
 
 Any agreed changes should be reflected in this document and communicated to both teams.
+
+## 10. Domain Model Alignment
+
+Relationship rules follow [VeriCommit Entity Relationships](domain-model/ENTITY_RELATIONSHIPS.md)
+(`docs/domain-model/ENTITY_RELATIONSHIPS.md`), particularly sections 2, 4–9.
+Product approval is confirmed by the maintainer for this review; the supplied
+source still carries proposed-status wording. Specification approval must not be
+interpreted as evidence that these rules or deferred workflows are implemented.
+
+### Approved relationship rules
+
+- Every persistent Milestone belongs to **exactly one Funding Agreement at a time**. Each
+  Funding Agreement has **exactly one responsible Grantor entity and one Grantee**.
+- A Grantor may fund multiple Grantees through separate Funding Agreements. Each
+  agreement may define multiple Milestones with its own scope and criteria.
+- A Grantee may have multiple active Funding Agreements with different Grantors
+  simultaneously, including concurrent funding for different Milestones. The
+  single-Grantor restriction applies to each agreement, not to the Grantee as a whole.
+- A formally defined **Collaborative Grantor** represents multiple organizations
+  acting as **one Grantor entity** for the relevant agreement. Independent Grantors
+  do not automatically become collaborative because they fund the same Grantee
+  or project. A single Milestone must not be assigned simultaneously to multiple
+  independent Grantor entities; joint funding requires a formal Collaborative
+  Grantor, or distinct Milestones under separate agreements as applicable.
+- Grantor–Grantee relationships are mediated by Funding Agreements. Milestones and
+  responsibilities are not implicitly shared across agreements. Sequential funding
+  is permitted, not mandatory; later agreements must not rewrite earlier history.
+- Scope and acceptance-criteria changes require authorization and preserved change
+  history. An approved Milestone must not be moved directly to another agreement;
+  any authorized correction or reassignment must preserve its original record,
+  relationship history, evidence, evaluations, and human decisions.
+- Transferring a Funding Agreement to another responsible Grantor requires explicit
+  authorization, Grantee acknowledgement, and an audit trail recording the former
+  and new Grantors, authorization, effective date, and reason. Historical evaluations
+  and decisions remain traceable to the Milestone, agreement, and responsible
+  Grantor applicable when they were made.
+- Private terms, budgets, correspondence, and evidence do not become visible to
+  other Grantors merely because they fund the same Grantee. Cross-funder access
+  must be explicitly authorized and scoped.
+
+### Current MVP evaluation boundary
+
+`POST /api/v1/evaluations` remains the existing milestone-evaluation interaction.
+All request/response fields, `github`/`sample` source values, criterion statuses,
+error codes, and examples above are preserved. The submitted milestone and agreed
+criteria describe the scope to evaluate; they are not a complete Funding Agreement
+or ownership record. This endpoint does not create, transfer, or manage Funding
+Agreements, and the request does not establish or change persistent Milestone
+ownership. `project_name` and `repository_url` must not be treated as
+Grantor, Grantee, or Funding Agreement identifiers, or as authorization to share
+evidence across agreements.
+
+No `grantor_id`, `grantee_id`, `funding_agreement_id`, or other relationship fields
+are added to this payload. How a future implementation resolves agreement identity,
+permissions, and historical associations requires a separately reviewed contract
+extension; this endpoint does not claim to persist or enforce those relationships.
+Full Funding Agreement lifecycle management, authorized transfers, and Milestone
+correction/reassignment workflows are deferred beyond the MVP. No lifecycle
+statuses, ownership-change operations, or funding/payment behavior are introduced here.
+
+The evaluator remains evidence-grounded and assesses only the agreed criteria.
+It cannot approve funding or change agreement ownership. Final milestone and
+funding decisions remain human responsibilities, with `human_review_required: true`.
