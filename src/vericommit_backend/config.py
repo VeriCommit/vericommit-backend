@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,3 +23,16 @@ class Settings(BaseSettings):
     log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = (
         "info"
     )
+    openai_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VERICOMMIT_OPENAI_API_KEY", "OPENAI_API_KEY"),
+        exclude=True,
+        repr=False,
+    )
+    ai_model: str = Field(default="gpt-4o-mini", min_length=1)
+    ai_timeout_seconds: float = Field(default=30, gt=0, le=300)
+
+    @field_validator("openai_api_key", mode="before")
+    @classmethod
+    def empty_key_is_unconfigured(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
