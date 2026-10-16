@@ -92,6 +92,26 @@ framework validation details. OpenAPI documents HTTP 400 instead of FastAPI's
 default 422. Provider-specific errors/timeouts and full BE-10 safeguards remain
 future work.
 
+## Internal evidence
+
+`evidence/models.py` defines strict, immutable internal records separately from the
+public schemas. Each record carries a stable `evidence_id`, actual `source`,
+`source_id`, evidence kind, meaningful title, optional source URL/content, and
+optional repository/commit/PR/release/author metadata. Missing metadata stays null;
+URLs are validated syntactically and preserved, not fetched or proven authentic.
+
+`evidence/normalization.py` provides pure adapters for GitHub-shaped commit,
+pull-request, and release payloads. IDs are namespaced by source, repository, kind,
+and the supplied upstream identifier. These adapters do not retrieve GitHub data.
+
+`NormalizedEvidence.to_public_reference()` returns the existing `EvidenceReference`
+with only `type`, `title`, and present `url`. The title carries the stable internal
+reference; samples require a `Sample: ` label, including when their URL is null.
+URL-less GitHub records can be retained internally but cannot become public
+references without a genuine URL. No URLs, authors, timestamps, or findings are
+invented. `EvidenceProvider.retrieve(request)` is the async boundary for sample and
+future live providers, returning an `EvidenceCollection` with source and limitations.
+
 ## Confirmed MVP defaults and implementation boundaries
 
 The backend maintainer has approved the final D1–D8 MVP policies, including HTTP
