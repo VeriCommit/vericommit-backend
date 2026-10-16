@@ -44,12 +44,53 @@ schema is at `/openapi.json`.
 ## Evaluation schemas
 
 `src/vericommit_backend/schemas.py` models the JSON request, response, and error
-shapes in `docs/API_CONTRACT.md`. No evaluation endpoint, evidence provider,
-funding-agreement storage, or AI service is implemented yet. `repository_url`
-remains required and validated as a GitHub repository URL for both `github` and `sample`; sample mode
+shapes in `docs/API_CONTRACT.md`. The endpoint reuses these models unchanged.
+No evidence provider, funding-agreement storage, or AI evaluator is implemented.
+`repository_url` remains required and validated as a GitHub repository URL for
+both `github` and `sample`; sample mode
 does not imply live retrieval. Model validation cannot establish that an evidence
 URL is genuine, that a report is grounded in evidence, or that a criterion result
 matches a particular request; those checks belong to later services.
+
+## Evaluation endpoint
+
+`POST /api/v1/evaluations` validates the approved request and delegates to the async
+`EvaluationService.evaluate(request)` interface. Routing is in
+`api/routes/evaluations.py`; the service interface is in `services/evaluation.py`.
+Use FastAPI's `get_evaluation_service` dependency to connect a later implementation;
+tests inject a fake service through `app.dependency_overrides`.
+
+Example request (illustrative project context only):
+
+```sh
+curl -X POST http://127.0.0.1:8000/api/v1/evaluations \
+  -H 'Content-Type: application/json' \
+  -d '{"project_name":"Demo","repository_url":"https://github.com/example/demo","milestone":{"title":"Registration","description":"Allow registration","acceptance_criteria":["Users can register"]},"evidence_source":"sample"}'
+```
+
+Until the real service is integrated, **valid requests return HTTP 502**, with:
+
+```json
+{
+  "error": {
+    "code": "EVALUATION_FAILED",
+    "message": "The evaluation service is not configured. No evaluation was performed."
+  }
+}
+```
+
+No successful findings, evidence retrieval, AI calls, or fallback are fabricated.
+The health endpoint still succeeds because it reports process liveness only.
+
+Invalid JSON, missing/null/wrong-type fields, blank required strings, empty or
+invalid criteria, unsupported sources, and undocumented fields return HTTP 400
+with the existing `error.code`/`error.message` envelope. URL-format/blank-URL
+validation failures use `INVALID_REPOSITORY_URL`, including alongside generic
+field errors; other request validation failures use `INVALID_REQUEST`. Validation
+failures never invoke `evaluate`. Responses do not echo submitted values or
+framework validation details. OpenAPI documents HTTP 400 instead of FastAPI's
+default 422. Provider-specific errors/timeouts and full BE-10 safeguards remain
+future work.
 
 ## Confirmed MVP defaults and implementation boundaries
 
@@ -89,8 +130,9 @@ approval. See sections 8–9 of
 Later services must implement D5's deterministic fixture selection without silent
 fallback, D6's actual-source preservation/disclosure through existing fields, and
 D7's distinction between insufficient evidence and retrieval/evaluation failures.
-No additional public error or provenance fields are approved. BE-10 owns exception
-handlers and the approved transport mappings and overlapping-error precedence.
+No additional public error or provenance fields are approved. The current handlers
+cover request validation and the unconfigured service. BE-10 owns remaining
+provider-error mappings, timeouts and security safeguards.
 The public MVP contract is finalized at the policy level. Synchronous execution,
 ID uniqueness, and criterion/result correlation are service requirements, not claims
 of existing runtime functionality.
