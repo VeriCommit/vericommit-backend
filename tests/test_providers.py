@@ -81,6 +81,7 @@ def test_only_selected_provider_is_created_and_closed(provider, monkeypatch):
 
     def sdk_factory(**kwargs):
         assert provider != "ollama"
+        assert kwargs["_strict_response_validation"] is (provider == "openai")
         assert kwargs["max_retries"] == 0
         assert kwargs["timeout"] == 30
         expected_key = "openai-test" if provider == "openai" else "groq-test"
@@ -175,6 +176,13 @@ def test_missing_selected_provider_configuration_never_uses_other_provider(
         "unsupported_claim",
         "truncated",
         "refusal",
+        "missing_choices",
+        "null_choices",
+        "empty_choices",
+        "missing_message",
+        "wrong_role",
+        "nonstring_content",
+        "tool_calls",
     ],
 )
 def test_groq_complete_endpoint_with_mocked_upstream(
@@ -205,30 +213,48 @@ def test_groq_complete_endpoint_with_mocked_upstream(
             output["citations"][0]["quote"] = "private-invented-excerpt"
         elif failure == "unsupported_claim":
             output["reasoning"] = "I independently verified the registration behavior."
-        return httpx.Response(
-            200,
-            json={
-                "id": "mock-groq",
-                "object": "chat.completion",
-                "created": 0,
-                "model": body["model"],
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": "length" if failure == "truncated" else "stop",
-                        "message": {
-                            "role": "assistant",
-                            "refusal": "private-refusal"
-                            if failure == "refusal"
-                            else None,
-                            "content": "bad JSON"
-                            if failure == "malformed"
-                            else json.dumps(output),
-                        },
-                    }
-                ],
-            },
-        )
+        completion = {
+            "id": "mock-groq",
+            "object": "chat.completion",
+            "created": 0,
+            "model": body["model"],
+            # Real Groq metadata that the OpenAI SDK's strict enum rejects.
+            "service_tier": "on_demand",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "length" if failure == "truncated" else "stop",
+                    "message": {
+                        "role": "assistant",
+                        "refusal": "private-refusal" if failure == "refusal" else None,
+                        "content": "bad JSON"
+                        if failure == "malformed"
+                        else json.dumps(output),
+                    },
+                }
+            ],
+        }
+        if failure == "missing_choices":
+            del completion["choices"]
+        elif failure == "null_choices":
+            completion["choices"] = None
+        elif failure == "empty_choices":
+            completion["choices"] = []
+        elif failure == "missing_message":
+            del completion["choices"][0]["message"]
+        elif failure == "wrong_role":
+            completion["choices"][0]["message"]["role"] = "user"
+        elif failure == "nonstring_content":
+            completion["choices"][0]["message"]["content"] = 123
+        elif failure == "tool_calls":
+            completion["choices"][0]["message"]["tool_calls"] = [
+                {
+                    "id": "private-call",
+                    "type": "function",
+                    "function": {"name": "private-tool", "arguments": "{}"},
+                }
+            ]
+        return httpx.Response(200, json=completion)
 
     def sdk_factory(**kwargs):
         return AsyncOpenAI(

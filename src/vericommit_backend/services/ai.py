@@ -40,6 +40,27 @@ class CriterionAssessment(AIOutputModel):
     suggested_next_steps: list[NonBlankString]
 
 
+class _CompletionModel(BaseModel):
+    # Provider-specific metadata is irrelevant to the assessment contract.
+    model_config = ConfigDict(strict=True, from_attributes=True)
+
+
+class _CompletionMessage(_CompletionModel):
+    role: Literal["assistant"]
+    content: NonBlankString
+    refusal: str | None = None
+    tool_calls: list | None = None
+
+
+class _CompletionChoice(_CompletionModel):
+    finish_reason: Literal["stop"]
+    message: _CompletionMessage
+
+
+class _CompletionResponse(_CompletionModel):
+    choices: list[_CompletionChoice] = Field(min_length=1, max_length=1)
+
+
 class CriterionAIClient(Protocol):
     async def assess(
         self, criterion: str, milestone: Milestone, evidence: EvidenceCollection
@@ -151,13 +172,13 @@ class OpenAICriterionClient:
                 # Groq does not need OpenAI's storage option.
                 **({"store": False} if self.provider == "openai" else {}),
             )
-            if len(response.choices) != 1:
-                raise AIEvaluationError("AI returned no usable assessment.")
-            choice = response.choices[0]
-            if choice.finish_reason != "stop" or choice.message.refusal:
+            # Groq uses the compatible SDK's permissive parsing only for its
+            # vendor envelope. Validate every field consumed here independently;
+            # metadata must neither reject valid output nor weaken content checks.
+            completion = _CompletionResponse.model_validate(response)
+            choice = completion.choices[0]
+            if choice.message.refusal or choice.message.tool_calls:
                 raise AIEvaluationError("AI did not complete the assessment.")
-            if not choice.message.content:
-                raise AIEvaluationError("AI returned no structured assessment.")
             return CriterionAssessment.model_validate_json(choice.message.content)
         except APITimeoutError as exc:
             log_failure(f"{self.provider}.chat.completions", exc)

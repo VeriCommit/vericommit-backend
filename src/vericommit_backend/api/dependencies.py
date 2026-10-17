@@ -53,7 +53,9 @@ async def get_ai_client(
         api_key=key.get_secret_value(),
         timeout=settings.ai_timeout_seconds,
         max_retries=0,
-        _strict_response_validation=True,
+        # Groq metadata (e.g. service_tier="on_demand") is not an OpenAI enum.
+        # The adapter strictly validates the provider-neutral completion fields.
+        _strict_response_validation=settings.ai_provider == "openai",
         **options,
     ) as sdk:
         yield OpenAICriterionClient(sdk, model, provider=settings.ai_provider)
