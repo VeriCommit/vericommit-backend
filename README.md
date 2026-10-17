@@ -42,6 +42,21 @@ curl http://127.0.0.1:8000/health
 not evidence/AI provider readiness. Interactive docs are at `/docs`; the OpenAPI
 schema is at `/openapi.json`.
 
+### Frontend CORS and safe failures
+
+`VERICOMMIT_CORS_ORIGINS` is a JSON array of exact frontend origins, defaulting to
+`["http://localhost:3000"]`. Set deployed origins explicitly, for example
+`["https://demo.example"]`; `[]` denies cross-origin access. Wildcards, credentials
+and URL paths are rejected. GET, POST and preflight OPTIONS support Content-Type
+and Accept headers. Cookies/cross-origin credentials are not enabled. CORS is not
+authentication; the public MVP API has no funding-administration permissions.
+
+Unexpected evaluation and invalid-report errors return the existing safe
+`EVALUATION_FAILED`/502 envelope. Application diagnostics contain only safe
+category/component/status guidance. Verbose HTTP transport, ASGI scope and raw
+access logs are suppressed to avoid logging headers, query strings or upstream
+bodies, including when the configured server log level is verbose.
+
 ## Evaluation schemas
 
 `src/vericommit_backend/schemas.py` models the JSON request, response, and error

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     host: str = Field(default="127.0.0.1", min_length=1)
     port: int = Field(default=8000, ge=1, le=65535)
     reload: bool = False
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = (
         "info"
     )
@@ -61,6 +62,32 @@ class Settings(BaseSettings):
     @classmethod
     def empty_key_is_unconfigured(cls, value):
         return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("cors_origins")
+    @classmethod
+    def exact_cors_origins(cls, values: list[str]) -> list[str]:
+        origins = []
+        for value in values:
+            parts = urlsplit(value)
+            if (
+                parts.scheme not in {"http", "https"}
+                or not parts.hostname
+                or "*" in value
+                or parts.username is not None
+                or parts.password is not None
+                or parts.path not in {"", "/"}
+                or "?" in value
+                or "#" in value
+                or any(char.isspace() or ord(char) < 32 for char in value)
+            ):
+                raise ValueError(
+                    "CORS requires exact HTTP(S) origins without credentials or paths"
+                )
+            _ = parts.port
+            origin = value.rstrip("/")
+            if origin not in origins:
+                origins.append(origin)
+        return origins
 
     @field_validator("ollama_base_url")
     @classmethod

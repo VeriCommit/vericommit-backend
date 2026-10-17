@@ -8,6 +8,32 @@ from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
+
+class _SuppressTransportDetails(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return False
+
+
+_TRANSPORT_FILTER = _SuppressTransportDetails()
+
+
+def configure_safe_logging() -> None:
+    # These emit URLs, headers, ASGI scopes or provider bodies at verbose levels.
+    # Our own allowlisted diagnostics retain component/category/status instead.
+    for name in (
+        "openai._base_client",
+        "httpx",
+        "httpcore.connection",
+        "httpcore.http11",
+        "httpcore.http2",
+        "httpcore.proxy",
+        "httpcore.socks",
+        "uvicorn.asgi",
+        "uvicorn.access",
+    ):
+        logging.getLogger(name).addFilter(_TRANSPORT_FILTER)
+
+
 _PROVIDER_ACTIONS = {
     "insufficient_quota": "Check API project billing, credits and spending limits.",
     "invalid_api_key": "Check the server API key and its project permissions.",
