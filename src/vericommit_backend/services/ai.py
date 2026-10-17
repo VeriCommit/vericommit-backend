@@ -2,13 +2,14 @@
 
 import json
 import logging
-from typing import Protocol
+from typing import Literal, Protocol
 
 from openai import APIError, APITimeoutError, AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from vericommit_backend.evidence.models import EvidenceCollection
 from vericommit_backend.schemas import CriterionStatus, Milestone, NonBlankString
+from vericommit_backend.services.diagnostics import log_failure
 
 
 class AIEvaluationError(RuntimeError):
@@ -86,45 +87,58 @@ Return only the required structured assessment. No retries or alternative source
 """
 
 
+def assessment_messages(
+    criterion: str, milestone: Milestone, evidence: EvidenceCollection
+) -> list[dict[str, str]]:
+    """Same minimized untrusted input and output contract for every provider."""
+    payload = {
+        "milestone": {"title": milestone.title, "description": milestone.description},
+        "criterion": criterion,
+        "source": evidence.source,
+        "evidence": [
+            {
+                "evidence_id": item.evidence_id,
+                "source": item.source,
+                "type": item.type,
+                "title": item.title,
+                "content": item.content,
+            }
+            for item in evidence.evidence
+        ],
+        "limitations": list(evidence.limitations),
+    }
+    return [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+            + "\nReturn JSON matching this schema:\n"
+            + json.dumps(CriterionAssessment.model_json_schema()),
+        },
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ]
+
+
 class OpenAICriterionClient:
-    def __init__(self, sdk: AsyncOpenAI, model: str) -> None:
+    """OpenAI or Groq's documented OpenAI-compatible structured-output API."""
+
+    def __init__(
+        self,
+        sdk: AsyncOpenAI,
+        model: str,
+        provider: Literal["openai", "groq"] = "openai",
+    ) -> None:
         logging.getLogger("openai._base_client").addFilter(_SDK_DIAGNOSTICS_FILTER)
         self.sdk = sdk
         self.model = model
+        self.provider = provider
 
     async def assess(
         self, criterion: str, milestone: Milestone, evidence: EvidenceCollection
     ) -> CriterionAssessment:
-        # No credentials, repository URL, author metadata or unrelated criteria sent.
-        payload = {
-            "milestone": {
-                "title": milestone.title,
-                "description": milestone.description,
-            },
-            "criterion": criterion,
-            "source": evidence.source,
-            "evidence": [
-                {
-                    "evidence_id": item.evidence_id,
-                    "source": item.source,
-                    "type": item.type,
-                    "title": item.title,
-                    "content": item.content,
-                }
-                for item in evidence.evidence
-            ],
-            "limitations": list(evidence.limitations),
-        }
         try:
             response = await self.sdk.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": json.dumps(payload, ensure_ascii=False),
-                    },
-                ],
+                messages=assessment_messages(criterion, milestone, evidence),
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
@@ -134,7 +148,8 @@ class OpenAICriterionClient:
                     },
                 },
                 max_completion_tokens=2000,
-                store=False,
+                # Groq does not need OpenAI's storage option.
+                **({"store": False} if self.provider == "openai" else {}),
             )
             if len(response.choices) != 1:
                 raise AIEvaluationError("AI returned no usable assessment.")
@@ -145,8 +160,18 @@ class OpenAICriterionClient:
                 raise AIEvaluationError("AI returned no structured assessment.")
             return CriterionAssessment.model_validate_json(choice.message.content)
         except APITimeoutError as exc:
+            log_failure(f"{self.provider}.chat.completions", exc)
             raise AITimeoutError("AI request timed out.") from exc
-        except (APIError, ValidationError) as exc:
+        except APIError as exc:
+            log_failure(f"{self.provider}.chat.completions", exc)
             raise AIEvaluationError(
                 "AI request or structured validation failed."
             ) from exc
+        except ValidationError as exc:
+            log_failure(f"{self.provider}.structured_response", exc)
+            raise AIEvaluationError(
+                "AI request or structured validation failed."
+            ) from exc
+        except AIEvaluationError as exc:
+            log_failure(f"{self.provider}.structured_response", exc)
+            raise

@@ -16,6 +16,7 @@ from vericommit_backend.services.ai import (
     CriterionAIClient,
     CriterionAssessment,
 )
+from vericommit_backend.services.diagnostics import log_failure
 from vericommit_backend.services.grounding import validate_assessment
 from vericommit_backend.services.reports import build_report
 
@@ -55,6 +56,7 @@ class AIEvaluationService:
     async def evaluate(self, request: EvaluationRequest) -> EvaluationResponse:
         evidence = await self.evidence_provider.retrieve(request)
         if evidence.source != request.evidence_source:
+            log_failure("evaluation.evidence_source", AIEvaluationError())
             raise AIEvaluationError(
                 "Evidence source does not match the requested source."
             )
@@ -71,10 +73,16 @@ class AIEvaluationService:
                 # clients other than the SDK adapter (including model_copy bypasses).
                 assessment = CriterionAssessment.model_validate(assessment)
             except TimeoutError as exc:
+                log_failure("evaluation.assess_timeout", exc)
                 raise AITimeoutError("AI evaluation timed out.") from exc
             except ValidationError as exc:
+                log_failure("evaluation.assessment_schema", exc)
                 raise AIEvaluationError("AI assessment failed validation.") from exc
-            result = validate_assessment(criterion, assessment, evidence)
+            try:
+                result = validate_assessment(criterion, assessment, evidence)
+            except (AIEvaluationError, ValidationError) as exc:
+                log_failure("grounding.validate_assessment", exc)
+                raise
             results.append(result)
             uncertainties.extend(
                 f"Criterion {index} — AI-reported gap/uncertainty (not verified fact): {gap}"
@@ -84,4 +92,8 @@ class AIEvaluationService:
                 f"Criterion {index} — AI suggestion for human review: {step}"
                 for step in assessment.suggested_next_steps
             )
-        return build_report(request, evidence, results, uncertainties, next_steps)
+        try:
+            return build_report(request, evidence, results, uncertainties, next_steps)
+        except (AIEvaluationError, ValidationError) as exc:
+            log_failure("reports.build_report", exc)
+            raise

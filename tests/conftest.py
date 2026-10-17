@@ -8,6 +8,21 @@ from vericommit_backend.schemas import EvaluationRequest
 from vericommit_backend.services.sample_evidence import SampleEvidenceProvider
 
 
+@pytest.fixture(autouse=True)
+def isolate_provider_environment(monkeypatch):
+    # Provider tests must not depend on a developer's selected runtime/provider.
+    for name in (
+        "VERICOMMIT_AI_PROVIDER",
+        "VERICOMMIT_OLLAMA_BASE_URL",
+        "VERICOMMIT_OLLAMA_MODEL",
+        "VERICOMMIT_OLLAMA_TIMEOUT_SECONDS",
+        "VERICOMMIT_GROQ_API_KEY",
+        "GROQ_API_KEY",
+        "VERICOMMIT_GROQ_MODEL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture
 def ai_request():
     dataset = SampleEvidenceProvider().load_dataset()

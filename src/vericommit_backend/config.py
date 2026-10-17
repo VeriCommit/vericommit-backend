@@ -1,6 +1,7 @@
 """Validated application and local server settings."""
 
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,10 +30,47 @@ class Settings(BaseSettings):
         exclude=True,
         repr=False,
     )
+    ai_provider: Literal["openai", "ollama", "groq"] = "openai"
     ai_model: str = Field(default="gpt-4o-mini", min_length=1)
     ai_timeout_seconds: float = Field(default=30, gt=0, le=300)
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = Field(default="qwen2.5:3b", min_length=1)
+    ollama_timeout_seconds: float = Field(default=120, gt=0, le=300)
+    groq_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VERICOMMIT_GROQ_API_KEY", "GROQ_API_KEY"),
+        exclude=True,
+        repr=False,
+    )
+    groq_model: str | None = Field(default=None, min_length=1)
 
-    @field_validator("openai_api_key", mode="before")
+    @field_validator("openai_api_key", "groq_api_key", "groq_model", mode="before")
     @classmethod
     def empty_key_is_unconfigured(cls, value):
         return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("ollama_base_url")
+    @classmethod
+    def valid_ollama_base_url(cls, value: str) -> str:
+        parts = urlsplit(value)
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+            or "?" in value
+            or "#" in value
+            or any(char.isspace() or ord(char) < 32 for char in value)
+        ):
+            raise ValueError("must be an HTTP(S) base URL without credentials or query")
+        # Accessing port also validates invalid/out-of-range port specifications.
+        _ = parts.port
+        return value.rstrip("/")
+
+    @property
+    def evaluation_timeout_seconds(self) -> float:
+        return (
+            self.ollama_timeout_seconds
+            if self.ai_provider == "ollama"
+            else self.ai_timeout_seconds
+        )

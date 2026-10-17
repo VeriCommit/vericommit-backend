@@ -26,7 +26,7 @@ Copy `.env.example` to `.env` to customize the application name, host, port, rel
 and log level; shell environment values take precedence. The default binding is
 `127.0.0.1:8000`, with reload disabled. Direct Uvicorn CLI startup uses its own
 host/port/reload options. Health and validation work without provider credentials;
-successful AI evaluation requires the configuration below.
+successful AI evaluation requires a running local model or hosted provider below.
 Local `.env` files are Git-ignored; `.env.example` contains no secrets.
 
 ## Local checks
@@ -71,7 +71,8 @@ curl -X POST http://127.0.0.1:8000/api/v1/evaluations \
   -d '{"project_name":"Demo","repository_url":"https://github.com/example/demo","milestone":{"title":"Registration","description":"Allow registration","acceptance_criteria":["Users can register"]},"evidence_source":"sample"}'
 ```
 
-Without an AI key, valid sample requests return **HTTP 502**, with:
+If the selected hosted provider lacks its key/model, valid sample requests return
+**HTTP 502**, with:
 
 ```json
 {
@@ -87,15 +88,52 @@ The health endpoint still succeeds because it reports process liveness only.
 
 ### Run an AI-assisted sample evaluation
 
-1. Install the project and activate the virtual environment as above.
-2. Copy `.env.example` to `.env`. Set `VERICOMMIT_OPENAI_API_KEY` to a real key
-   locally (or use `OPENAI_API_KEY`). Never commit it. Set `VERICOMMIT_AI_MODEL`
-   to an available model supporting Chat Completions strict JSON Schema; the
-   default is `gpt-4o-mini`. `VERICOMMIT_AI_TIMEOUT_SECONDS` defaults to 30 per
-   criterion. Account access, credits/quota and model availability are required;
-   configuring a key does not prove a call will succeed.
-3. Start `python -m vericommit_backend` in one terminal.
-4. In another terminal, run from the repository root:
+Select exactly one provider using `VERICOMMIT_AI_PROVIDER` (`openai`, `ollama`,
+or `groq`). The application default remains `openai` for existing installations;
+`.env.example` selects local `ollama`. Selection never falls back to another provider.
+
+#### Windows: local Ollama, no API credits
+
+Install [Ollama for Windows](https://ollama.com/download/windows), or run
+`winget install --id Ollama.Ollama -e`, then open a new PowerShell terminal.
+Start the Ollama app (or `ollama serve` if it is not already running), then:
+
+```powershell
+ollama pull qwen2.5:3b
+ollama list
+# From the repository root, with your Python environment activated:
+python -m pip install -e ".[dev]"
+$env:VERICOMMIT_AI_PROVIDER = "ollama"
+$env:VERICOMMIT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+$env:VERICOMMIT_OLLAMA_MODEL = "qwen2.5:3b"
+$env:VERICOMMIT_OLLAMA_TIMEOUT_SECONDS = "120"
+python -m vericommit_backend
+```
+
+These values can also be set in your existing `.env`; preserve any existing keys.
+The default `qwen2.5:3b` download is about 1.9 GB. Choose an installed model suitable
+for your RAM/CPU/GPU; `qwen2.5:1.5b` is a smaller option. Pull that tag and change
+`VERICOMMIT_OLLAMA_MODEL` together. Models must support chat and native structured
+outputs. Small models can still produce invalid or ungrounded responses, which
+are rejected rather than repaired or replaced with findings.
+
+#### Provider settings
+
+| Provider | Environment variables |
+| --- | --- |
+| `ollama` | `VERICOMMIT_OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`), `VERICOMMIT_OLLAMA_MODEL` (default `qwen2.5:3b`), `VERICOMMIT_OLLAMA_TIMEOUT_SECONDS` (default `120`) |
+| `openai` | `VERICOMMIT_OPENAI_API_KEY` (or `OPENAI_API_KEY`), `VERICOMMIT_AI_MODEL` (default `gpt-4o-mini`), `VERICOMMIT_AI_TIMEOUT_SECONDS` (default `30`) |
+| `groq` | `VERICOMMIT_GROQ_API_KEY` (or `GROQ_API_KEY`), **required** `VERICOMMIT_GROQ_MODEL` (no default), `VERICOMMIT_AI_TIMEOUT_SECONDS` (default `30`) |
+
+Timeouts are per criterion, greater than zero and at most 300 seconds, covering
+the complete AI operation. Ollama uses `/api/chat`, JSON Schema and no streaming;
+environment proxies are disabled for the local client. Hosted providers use strict
+JSON Schema. For Groq, choose a currently accessible model supporting `strict: true`
+from its [structured-output documentation](https://console.groq.com/docs/structured-outputs).
+Free-tier access, model availability and quota depend on your Groq account; none
+are assumed. Keep hosted keys server-side in `.env` or the environment.
+
+With the backend running, call from another terminal:
 
 ```sh
 curl --fail-with-body -X POST http://127.0.0.1:8000/api/v1/evaluations \
@@ -116,16 +154,18 @@ criteria, and sample references before printing the report:
 python examples/smoke_sample.py
 ```
 
-The server must already be running with provider credentials. This command has no
+The server must already be running with the selected provider configured. This command has no
 mock mode and exits unsuccessfully on an API error; it never fills in findings.
-Use `--base-url` for a different backend address and `--timeout` for a longer wait.
+Use `--base-url` for a different backend address and `--timeout` for a longer wait
+(default 600 seconds accommodates the three sample criteria on slower local hardware).
 
-The SDK adapter is replaceable through `CriterionAIClient.assess`. Credentials are
+All providers implement `CriterionAIClient.assess`. Credentials are
 server-only, excluded from settings serialization and repr. No repository URL,
 author metadata, credentials or unrelated criteria are sent in the prompt; the
 current criterion, milestone context and supplied untrusted excerpts are sent.
-Provider storage is disabled with `store=false`; this does not claim zero provider
-retention. The SDK client is closed after the request.
+OpenAI storage is disabled with `store=false`; this does not claim zero provider
+retention. Groq uses its own provider retention policy. Ollama inference goes to
+the configured local server. HTTP/SDK clients are closed after the request.
 
 The separate Python grounding validator checks exact criterion text, authorized
 IDs, exact contiguous quotes, citation requirements, uncertainty disclosure and
@@ -159,17 +199,27 @@ are provider failures, not successful evaluations. Missing AI configuration reta
 the explicit error above. GitHub mode returns `EVIDENCE_RETRIEVAL_FAILED`/502 and
 never uses sample fallback. Error responses contain no provider details or excerpts.
 
-Verification uses mocked upstream HTTP through the real SDK and actual application
+Server-side evaluation failure logs identify the component, exception category,
+upstream HTTP status and allowlisted provider error code/type, with static troubleshooting
+guidance. They do not include exception text, upstream bodies, authorization headers,
+prompts or evidence. In particular, HTTP 429 with `insufficient_quota` requires
+checking the API key's OpenAI project billing, credits and spending limits; it is
+not fixed by changing grounding checks. Other 429 failures may indicate rate limits.
+
+Verification uses mocked upstream HTTP through the real adapters and actual application
 services:
 
 ```sh
-python -m pytest -q tests/test_ai.py tests/test_grounding.py tests/test_ai_evaluations.py
+python -m pytest -q tests/test_providers.py tests/test_ollama.py tests/test_grounding.py tests/test_ai_evaluations.py
 ```
 
-**No live AI call has been verified: no key was configured in the implementation
-environment.** Mocked tests verify transport, evaluation, grounding, and report
-serialization, not model judgment or resistance to all adversarial prompts. Once
-credentials are available, the curl command or smoke client above is the live test.
+**Live verification on 2026-10-17 reached OpenAI but failed with HTTP 429 /
+`insufficient_quota`; no live report was generated and grounding was not reached.**
+Mocked tests verify transport, evaluation, grounding, and report serialization,
+not model judgment or resistance to all adversarial prompts. Ollama was not on PATH
+and its local API was unavailable in this environment, so local inference has not
+been verified. The smoke client above tests real inference once Ollama is running
+with the selected model installed.
 
 Invalid JSON, missing/null/wrong-type fields, blank required strings, empty or
 invalid criteria, unsupported sources, and undocumented fields return HTTP 400

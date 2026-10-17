@@ -1,6 +1,7 @@
 """Call a running backend with the sample request and validate its actual report.
 
-Requires the backend to have real provider credentials. There is no mock mode.
+Requires a running real AI provider (local Ollama or configured hosted API).
+There is no mock mode.
 Run: python examples/smoke_sample.py --base-url http://127.0.0.1:8000
 """
 
@@ -18,7 +19,7 @@ from vericommit_backend.services.sample_evidence import SampleEvidenceProvider
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
-    parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--timeout", type=float, default=600)
     args = parser.parse_args()
     request = EvaluationRequest.model_validate_json(
         Path(__file__).with_name("sample_evaluation.json").read_text(encoding="utf-8")
