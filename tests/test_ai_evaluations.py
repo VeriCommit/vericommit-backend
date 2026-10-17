@@ -122,7 +122,7 @@ def test_original_order_whitespace_and_duplicates_are_evaluated_independently(
 
 @pytest.mark.parametrize("failure", ["provider", "timeout", "grounding"])
 def test_ai_failures_return_approved_error_and_no_partial_report(
-    ai_request, assessment_payload, failure
+    ai_request, assessment_payload, failure, caplog
 ):
     ai = AsyncMock(spec=CriterionAIClient)
     if failure == "grounding":
@@ -147,6 +147,72 @@ def test_ai_failures_return_approved_error_and_no_partial_report(
     assert response.json()["error"]["code"] == "EVALUATION_FAILED"
     assert "private" not in response.text
     assert ai.assess.await_count == 1
+    if failure == "grounding":
+        assert "component=grounding.validate_assessment" in caplog.text
+        assert "exception=GroundingError" in caplog.text
+        assert "sample:invented:record" not in caplog.text
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("quota_in_code", [False, True])
+def test_quota_failure_has_safe_actionable_diagnostics_and_generic_public_error(
+    ai_request, monkeypatch, caplog, wrapped, quota_in_code
+):
+    """Reproduce the live 429 through the real SDK, endpoint and error handler."""
+    calls = []
+    error = {
+        "message": "private-provider-body API key private-key-sentinel",
+        "type": "insufficient_quota",
+        "code": "insufficient_quota" if quota_in_code else "unrecognized-provider-code",
+        "param": None,
+    }
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(429, json={"error": error} if wrapped else error)
+
+    def sdk_factory(**kwargs):
+        return AsyncOpenAI(
+            **kwargs,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+    monkeypatch.setattr(dependencies, "AsyncOpenAI", sdk_factory)
+    app = create_app(
+        Settings(_env_file=None, VERICOMMIT_OPENAI_API_KEY="private-key-sentinel")
+    )
+    with caplog.at_level("DEBUG"), TestClient(app) as client:
+        response = client.post(
+            "/api/v1/evaluations", json=ai_request.model_dump(mode="json")
+        )
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "EVALUATION_FAILED",
+            "message": "AI evaluation or evidence grounding failed. No report was generated.",
+        }
+    }
+    assert len(calls) == 1
+    assert "component=openai.chat.completions" in caplog.text
+    assert "exception=RateLimitError status=429" in caplog.text
+    assert "provider_type=insufficient_quota" in caplog.text
+    assert (
+        f"provider_code={'insufficient_quota' if quota_in_code else 'unclassified'}"
+        in caplog.text
+    )
+    assert "unrecognized-provider-code" not in caplog.text
+    assert "Check API project billing, credits and spending limits." in caplog.text
+    assert "component=grounding" not in caplog.text
+    assert "component=reports" not in caplog.text
+    for private in (
+        "private-key-sentinel",
+        "private-provider-body",
+        "Authorization",
+        ai_request.milestone.description,
+        *ai_request.milestone.acceptance_criteria,
+        SampleEvidenceProvider().load_dataset().evidence[0].content,
+    ):
+        assert private not in caplog.text
 
 
 def test_retrieval_failure_stops_ai_before_any_evaluation(ai_request):
@@ -191,11 +257,14 @@ def test_empty_successful_retrieval_can_return_honest_insufficient_report(
     assert "0 supported" in report.overall_summary
 
 
-def test_github_mode_is_explicitly_unsupported_without_sample_fallback(ai_request):
+def test_github_retrieval_failure_has_no_sample_fallback(ai_request):
     ai_request.evidence_source = "github"
     ai = AsyncMock(spec=CriterionAIClient)
     app = create_app(Settings(_env_file=None))
     app.dependency_overrides[get_ai_client] = lambda: ai
+    provider = AsyncMock(spec=EvidenceProvider)
+    provider.retrieve.side_effect = EvidenceProviderError("private upstream failure")
+    app.dependency_overrides[get_evidence_provider] = lambda: provider
     with TestClient(app) as client:
         response = client.post(
             "/api/v1/evaluations", json=ai_request.model_dump(mode="json")

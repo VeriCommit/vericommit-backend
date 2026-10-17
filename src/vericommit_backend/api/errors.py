@@ -6,9 +6,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
-from vericommit_backend.evidence.providers import EvidenceProviderError
+from vericommit_backend.evidence.providers import (
+    EvidenceProviderError,
+    EvidenceRateLimitError,
+    EvidenceTimeoutError,
+    RepositoryAccessDeniedError,
+)
 from vericommit_backend.schemas import ErrorDetail, ErrorResponse
 from vericommit_backend.services.ai import AIEvaluationError, AITimeoutError
+from vericommit_backend.services.diagnostics import log_failure
 from vericommit_backend.services.evaluation import EvaluationNotConfiguredError
 
 
@@ -48,7 +54,27 @@ async def request_parsing_error_handler(request: Request, exc: HTTPException):
         return error_response(
             400, "INVALID_REQUEST", "Provide a valid JSON request body."
         )
-    return await http_exception_handler(request, exc)
+    if exc.status_code >= 500:
+        return await unexpected_error_handler(request, exc)
+    if exc.status_code == 403:
+        return await evidence_provider_error_handler(
+            request, RepositoryAccessDeniedError()
+        )
+    # Framework routing errors retain their HTTP status, without arbitrary details
+    # or exception headers supplied by application code.
+    safe = HTTPException(exc.status_code)
+    if exc.status_code == 405 and exc.headers and "Allow" in exc.headers:
+        safe.headers = {"Allow": exc.headers["Allow"]}
+    return await http_exception_handler(request, safe)
+
+
+async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    log_failure("api.response", exc)
+    return error_response(
+        502,
+        "EVALUATION_FAILED",
+        "Evaluation could not be completed. No report was generated.",
+    )
 
 
 async def evaluation_not_configured_handler(
@@ -76,8 +102,16 @@ async def ai_evaluation_error_handler(
 async def evidence_provider_error_handler(
     request: Request, exc: EvidenceProviderError
 ) -> JSONResponse:
+    if isinstance(exc, RepositoryAccessDeniedError):
+        return error_response(
+            403,
+            "REPOSITORY_ACCESS_DENIED",
+            "The public repository or required evidence is unavailable or access is denied.",
+        )
     return error_response(
-        502,
+        504 if isinstance(exc, EvidenceTimeoutError) else 502,
         "EVIDENCE_RETRIEVAL_FAILED",
-        "Required evidence could not be retrieved. GitHub mode is not implemented; no sample fallback was used.",
+        "GitHub rate limit prevented evidence retrieval. Retry after the limit resets; no sample fallback was used."
+        if isinstance(exc, EvidenceRateLimitError)
+        else "Required evidence could not be retrieved; no sample fallback was used.",
     )

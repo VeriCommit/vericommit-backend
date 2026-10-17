@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi.exceptions import ResponseValidationError
 from fastapi.testclient import TestClient
 
 from vericommit_backend.api.dependencies import get_evaluation_service
@@ -98,7 +97,7 @@ def test_default_service_never_fabricates_a_success(application, payloads, sourc
     assert_error(
         response,
         502,
-        "EVALUATION_FAILED" if source == "sample" else "EVIDENCE_RETRIEVAL_FAILED",
+        "EVALUATION_FAILED",
     )
     if source == "sample":
         assert response.json()["error"]["message"] == (
@@ -252,8 +251,9 @@ def test_response_validation_preserves_mandatory_human_review(
     request, report = payloads
     report["human_review_required"] = False
     service.evaluate.return_value = report
-    with pytest.raises(ResponseValidationError):
-        client.post(ENDPOINT, json=request)
+    response = client.post(ENDPOINT, json=request)
+    assert_error(response, 502, "EVALUATION_FAILED")
+    assert "human_review_required" not in response.text
 
 
 def test_openapi_uses_existing_models_and_http_400(client):

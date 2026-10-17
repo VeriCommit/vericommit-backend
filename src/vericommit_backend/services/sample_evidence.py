@@ -66,8 +66,7 @@ class SampleEvidenceProvider:
     async def retrieve(self, request: EvaluationRequest) -> EvidenceCollection:
         if request.evidence_source != "sample":
             raise UnsupportedEvidenceSourceError(
-                "The sample provider only supports explicit sample mode; "
-                "GitHub retrieval is not implemented."
+                "The sample provider only supports explicit sample mode."
             )
         dataset = self.load_dataset()
         return EvidenceCollection(

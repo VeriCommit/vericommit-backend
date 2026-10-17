@@ -1,5 +1,9 @@
 # VeriCommit backend
 
+For the 4 GB / 8 GB development computers, use the hosted-Groq path in
+[the Windows MVP demo guide](docs/DEMO.md). No Ollama service, GPU or local model
+download is required. Existing `.env` credentials are loaded by the backend only.
+
 Requires Python 3.12+. From the repository root, create a virtual environment and
 install the application and development tools:
 
@@ -26,7 +30,7 @@ Copy `.env.example` to `.env` to customize the application name, host, port, rel
 and log level; shell environment values take precedence. The default binding is
 `127.0.0.1:8000`, with reload disabled. Direct Uvicorn CLI startup uses its own
 host/port/reload options. Health and validation work without provider credentials;
-successful AI evaluation requires the configuration below.
+successful AI evaluation requires a running local model or hosted provider below.
 Local `.env` files are Git-ignored; `.env.example` contains no secrets.
 
 ## Local checks
@@ -42,12 +46,36 @@ curl http://127.0.0.1:8000/health
 not evidence/AI provider readiness. Interactive docs are at `/docs`; the OpenAPI
 schema is at `/openapi.json`.
 
+CI runs the same Pytest, Ruff lint, Ruff formatting and whitespace checks on pull
+requests targeting `staging`/`main` and pushes to either branch. The matrix covers
+Python 3.12 and 3.14 on Linux and Windows, uses read-only repository permissions,
+and receives no provider secrets. Tests isolate provider settings and block
+unmocked upstream HTTP; loopback HTTP remains available for executable API tests.
+Any failed step fails its job. Maintainers must select these checks as required in
+GitHub branch protection/rulesets if merges must be blocked; workflow configuration
+alone cannot enforce that repository policy.
+
+### Frontend CORS and safe failures
+
+`VERICOMMIT_CORS_ORIGINS` is a JSON array of exact frontend origins, defaulting to
+`["http://localhost:3000"]`. Set deployed origins explicitly, for example
+`["https://demo.example"]`; `[]` denies cross-origin access. Wildcards, credentials
+and URL paths are rejected. GET, POST and preflight OPTIONS support Content-Type
+and Accept headers. Cookies/cross-origin credentials are not enabled. CORS is not
+authentication; the public MVP API has no funding-administration permissions.
+
+Unexpected evaluation and invalid-report errors return the existing safe
+`EVALUATION_FAILED`/502 envelope. Application diagnostics contain only safe
+category/component/status guidance. Verbose HTTP transport, ASGI scope and raw
+access logs are suppressed to avoid logging headers, query strings or upstream
+bodies, including when the configured server log level is verbose.
+
 ## Evaluation schemas
 
 `src/vericommit_backend/schemas.py` models the JSON request, response, and error
 shapes in `docs/API_CONTRACT.md`. The endpoint reuses these models unchanged.
-The sample provider and configured OpenAI evaluator are implemented. No live GitHub
-retrieval or funding-agreement storage is implemented.
+Sample and public GitHub evidence providers are implemented, with configurable
+Ollama, Groq and OpenAI evaluators. Funding-agreement storage is not implemented.
 `repository_url` remains required and validated as a GitHub repository URL for
 both `github` and `sample`; sample mode
 does not imply live retrieval. Model validation cannot establish that an evidence
@@ -71,7 +99,8 @@ curl -X POST http://127.0.0.1:8000/api/v1/evaluations \
   -d '{"project_name":"Demo","repository_url":"https://github.com/example/demo","milestone":{"title":"Registration","description":"Allow registration","acceptance_criteria":["Users can register"]},"evidence_source":"sample"}'
 ```
 
-Without an AI key, valid sample requests return **HTTP 502**, with:
+If the selected hosted provider lacks its key/model, valid sample requests return
+**HTTP 502**, with:
 
 ```json
 {
@@ -87,15 +116,52 @@ The health endpoint still succeeds because it reports process liveness only.
 
 ### Run an AI-assisted sample evaluation
 
-1. Install the project and activate the virtual environment as above.
-2. Copy `.env.example` to `.env`. Set `VERICOMMIT_OPENAI_API_KEY` to a real key
-   locally (or use `OPENAI_API_KEY`). Never commit it. Set `VERICOMMIT_AI_MODEL`
-   to an available model supporting Chat Completions strict JSON Schema; the
-   default is `gpt-4o-mini`. `VERICOMMIT_AI_TIMEOUT_SECONDS` defaults to 30 per
-   criterion. Account access, credits/quota and model availability are required;
-   configuring a key does not prove a call will succeed.
-3. Start `python -m vericommit_backend` in one terminal.
-4. In another terminal, run from the repository root:
+Select exactly one provider using `VERICOMMIT_AI_PROVIDER` (`openai`, `ollama`,
+or `groq`). The application default remains `openai` for existing installations;
+`.env.example` selects hosted `groq`. Selection never falls back to another provider.
+
+#### Windows: local Ollama, no API credits
+
+Install [Ollama for Windows](https://ollama.com/download/windows), or run
+`winget install --id Ollama.Ollama -e`, then open a new PowerShell terminal.
+Start the Ollama app (or `ollama serve` if it is not already running), then:
+
+```powershell
+ollama pull qwen2.5:3b
+ollama list
+# From the repository root, with your Python environment activated:
+python -m pip install -e ".[dev]"
+$env:VERICOMMIT_AI_PROVIDER = "ollama"
+$env:VERICOMMIT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+$env:VERICOMMIT_OLLAMA_MODEL = "qwen2.5:3b"
+$env:VERICOMMIT_OLLAMA_TIMEOUT_SECONDS = "120"
+python -m vericommit_backend
+```
+
+These values can also be set in your existing `.env`; preserve any existing keys.
+The default `qwen2.5:3b` download is about 1.9 GB. Choose an installed model suitable
+for your RAM/CPU/GPU; `qwen2.5:1.5b` is a smaller option. Pull that tag and change
+`VERICOMMIT_OLLAMA_MODEL` together. Models must support chat and native structured
+outputs. Small models can still produce invalid or ungrounded responses, which
+are rejected rather than repaired or replaced with findings.
+
+#### Provider settings
+
+| Provider | Environment variables |
+| --- | --- |
+| `ollama` | `VERICOMMIT_OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`), `VERICOMMIT_OLLAMA_MODEL` (default `qwen2.5:3b`), `VERICOMMIT_OLLAMA_TIMEOUT_SECONDS` (default `120`) |
+| `openai` | `VERICOMMIT_OPENAI_API_KEY` (or `OPENAI_API_KEY`), `VERICOMMIT_AI_MODEL` (default `gpt-4o-mini`), `VERICOMMIT_AI_TIMEOUT_SECONDS` (default `30`) |
+| `groq` | `VERICOMMIT_GROQ_API_KEY` (or `GROQ_API_KEY`), **required** `VERICOMMIT_GROQ_MODEL` (no default), `VERICOMMIT_AI_TIMEOUT_SECONDS` (default `30`) |
+
+Timeouts are per criterion, greater than zero and at most 300 seconds, covering
+the complete AI operation. Ollama uses `/api/chat`, JSON Schema and no streaming;
+environment proxies are disabled for the local client. Hosted providers use strict
+JSON Schema. For Groq, choose a currently accessible model supporting `strict: true`
+from its [structured-output documentation](https://console.groq.com/docs/structured-outputs).
+Free-tier access, model availability and quota depend on your Groq account; none
+are assumed. Keep hosted keys server-side in `.env` or the environment.
+
+With the backend running, call from another terminal:
 
 ```sh
 curl --fail-with-body -X POST http://127.0.0.1:8000/api/v1/evaluations \
@@ -114,18 +180,27 @@ criteria, and sample references before printing the report:
 
 ```sh
 python examples/smoke_sample.py
+python examples/smoke_github.py --summary
 ```
 
-The server must already be running with provider credentials. This command has no
+The server must already be running with the selected provider configured. This command has no
 mock mode and exits unsuccessfully on an API error; it never fills in findings.
-Use `--base-url` for a different backend address and `--timeout` for a longer wait.
+Use `--base-url` for a different backend address and `--timeout` for a longer wait
+(default 600 seconds accommodates the three sample criteria on slower local hardware).
+Both commands verify health, browser CORS preflight, the invalid-request fixture,
+the actual report schema, criterion ordering, provenance, traceable references and
+mandatory human review. `--summary` prints only counts; omit it for the report.
+Use `--origin` when the configured frontend origin differs from localhost:3000.
+Neither command retries or substitutes mocked results. The GitHub client verifies
+reference scope/shape; authoritative snapshot grounding remains server-side.
 
-The SDK adapter is replaceable through `CriterionAIClient.assess`. Credentials are
+All providers implement `CriterionAIClient.assess`. Credentials are
 server-only, excluded from settings serialization and repr. No repository URL,
 author metadata, credentials or unrelated criteria are sent in the prompt; the
 current criterion, milestone context and supplied untrusted excerpts are sent.
-Provider storage is disabled with `store=false`; this does not claim zero provider
-retention. The SDK client is closed after the request.
+OpenAI storage is disabled with `store=false`; this does not claim zero provider
+retention. Groq uses its own provider retention policy. Ollama inference goes to
+the configured local server. HTTP/SDK clients are closed after the request.
 
 The separate Python grounding validator checks exact criterion text, authorized
 IDs, exact contiguous quotes, citation requirements, uncertainty disclosure and
@@ -156,20 +231,70 @@ assessment; retrieval failures never become empty successful retrievals.
 AI errors, invalid output, refusal, truncation and grounding rejection return
 `EVALUATION_FAILED`/502; AI timeouts return the same code with 504. Invalid credentials
 are provider failures, not successful evaluations. Missing AI configuration retains
-the explicit error above. GitHub mode returns `EVIDENCE_RETRIEVAL_FAILED`/502 and
-never uses sample fallback. Error responses contain no provider details or excerpts.
+the explicit error above. GitHub retrieval failures never use sample fallback.
+Error responses contain no provider details or excerpts.
 
-Verification uses mocked upstream HTTP through the real SDK and actual application
+### Public GitHub evidence (BE-06)
+
+Set `evidence_source` to `github` with an approved `https://github.com/owner/repo`
+URL. For example, submit `examples/github_evaluation.json` to the same endpoint.
+This retrieves live evidence and invokes the selected real AI provider; `sample`
+continues to use only the local synthetic fixture.
+
+Public repositories work without a token, subject to GitHub rate limits. Optional
+`VERICOMMIT_GITHUB_TOKEN` (or `GITHUB_TOKEN`) is server-only; put it in your ignored
+`.env` or environment. Private/internal repositories are outside this MVP scope,
+even when a token could access them.
+
+Retrieval covers repository metadata, recent default-branch commits, pull requests
+in all states, releases, and checks/workflow runs for the newest retrieved commit.
+Up to three commit details and two PR file lists supply changed-file metadata.
+Patch fields returned by GitHub are discarded; raw files and full source files are
+not downloaded. Reported check conclusions are not tests executed or independently
+verified by VeriCommit.
+
+Bounds: `VERICOMMIT_GITHUB_TIMEOUT_SECONDS=10` per request (maximum 30),
+`VERICOMMIT_GITHUB_TOTAL_TIMEOUT_SECONDS=60` overall (maximum 120),
+`VERICOMMIT_GITHUB_PAGE_SIZE=5` (maximum 20), `VERICOMMIT_GITHUB_MAX_PAGES=2`
+(maximum 3), and `VERICOMMIT_GITHUB_MAX_REQUESTS=25` (maximum 100).
+Each activity list is capped at five records; changed-file lists at 20 files.
+Responses are capped at 1 MB each / 4 MB total; evidence content at 3,000 characters
+per record / 30,000 total, and titles at 300 characters. Scope and truncation appear
+in report limitations. Metadata-only or empty successful retrieval is not a failure.
+
+Only constructed `https://api.github.com/repos/...` endpoints are requested.
+Redirects, upstream pagination URLs, content URLs and external check detail URLs
+are never fetched; local proxy environment settings are disabled. Links in reports
+come from GitHub response fields and are restricted to the requested repository.
+No automatic retries occur. Any actual HTTP/network/malformed-response failure
+stops evaluation rather than returning a misleading partial success.
+
+Missing/inaccessible repositories return `REPOSITORY_ACCESS_DENIED`/403. Rate limits,
+other HTTP failures and malformed evidence return `EVIDENCE_RETRIEVAL_FAILED`/502;
+retrieval timeouts use that code with 504. No tokens, upstream bodies or evidence
+text are logged or included in public errors.
+
+Server-side evaluation failure logs identify the component, exception category,
+upstream HTTP status and allowlisted provider error code/type, with static troubleshooting
+guidance. They do not include exception text, upstream bodies, authorization headers,
+prompts or evidence. In particular, HTTP 429 with `insufficient_quota` requires
+checking the API key's OpenAI project billing, credits and spending limits; it is
+not fixed by changing grounding checks. Other 429 failures may indicate rate limits.
+
+Verification uses mocked upstream HTTP through the real adapters and actual application
 services:
 
 ```sh
-python -m pytest -q tests/test_ai.py tests/test_grounding.py tests/test_ai_evaluations.py
+python -m pytest -q tests/test_providers.py tests/test_ollama.py tests/test_grounding.py tests/test_ai_evaluations.py
 ```
 
-**No live AI call has been verified: no key was configured in the implementation
-environment.** Mocked tests verify transport, evaluation, grounding, and report
-serialization, not model judgment or resistance to all adversarial prompts. Once
-credentials are available, the curl command or smoke client above is the live test.
+**Live verification on 2026-10-17 reached OpenAI but failed with HTTP 429 /
+`insufficient_quota`; no live report was generated and grounding was not reached.**
+Mocked tests verify transport, evaluation, grounding, and report serialization,
+not model judgment or resistance to all adversarial prompts. Ollama was not on PATH
+and its local API was unavailable in this environment, so local inference has not
+been verified. The smoke client above tests real inference once Ollama is running
+with the selected model installed.
 
 Invalid JSON, missing/null/wrong-type fields, blank required strings, empty or
 invalid criteria, unsupported sources, and undocumented fields return HTTP 400
@@ -178,8 +303,7 @@ validation failures use `INVALID_REPOSITORY_URL`, including alongside generic
 field errors; other request validation failures use `INVALID_REQUEST`. Validation
 failures never invoke `evaluate`. Responses do not echo submitted values or
 framework validation details. OpenAPI documents HTTP 400 instead of FastAPI's
-default 422. GitHub-specific transport handling and full BE-10 security safeguards
-remain future work.
+default 422. Broader BE-10 safeguards remain future work.
 
 ## Internal evidence
 
@@ -271,7 +395,7 @@ D7's distinction between insufficient evidence and retrieval/evaluation failures
 No additional public error or provenance fields are approved. The current handlers
 cover validation, missing configuration, evidence retrieval failure, AI failure,
 grounding rejection and AI timeouts. BE-10 owns remaining transport/security
-safeguards, including future live GitHub access handling.
+safeguards beyond the bounded public GitHub provider.
 The public MVP contract is finalized at the policy level. Synchronous execution,
 ID uniqueness, criterion/result correlation, grounded AI output and report assembly
 are implemented by the evaluation services and tested with mocked AI responses.

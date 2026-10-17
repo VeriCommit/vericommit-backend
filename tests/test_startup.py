@@ -25,6 +25,7 @@ def test_module_starts_uvicorn_and_serves_health(tmp_path):
         "VERICOMMIT_LOG_LEVEL": "info",
         "VERICOMMIT_OPENAI_API_KEY": "",
         "OPENAI_API_KEY": "",
+        "VERICOMMIT_AI_PROVIDER": "openai",
     }
     process = subprocess.Popen(
         [sys.executable, "-u", "-m", "vericommit_backend"],
