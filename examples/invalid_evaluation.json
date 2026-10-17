@@ -1,0 +1,10 @@
+{
+  "project_name": "Invalid request demonstration",
+  "repository_url": "https://github.com/octocat/Hello-World",
+  "milestone": {
+    "title": "Missing criteria",
+    "description": "This request must return INVALID_REQUEST without calling providers.",
+    "acceptance_criteria": []
+  },
+  "evidence_source": "sample"
+}

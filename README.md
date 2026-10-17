@@ -1,5 +1,9 @@
 # VeriCommit backend
 
+For the 4 GB / 8 GB development computers, use the hosted-Groq path in
+[the Windows MVP demo guide](docs/DEMO.md). No Ollama service, GPU or local model
+download is required. Existing `.env` credentials are loaded by the backend only.
+
 Requires Python 3.12+. From the repository root, create a virtual environment and
 install the application and development tools:
 
@@ -114,7 +118,7 @@ The health endpoint still succeeds because it reports process liveness only.
 
 Select exactly one provider using `VERICOMMIT_AI_PROVIDER` (`openai`, `ollama`,
 or `groq`). The application default remains `openai` for existing installations;
-`.env.example` selects local `ollama`. Selection never falls back to another provider.
+`.env.example` selects hosted `groq`. Selection never falls back to another provider.
 
 #### Windows: local Ollama, no API credits
 
@@ -176,12 +180,19 @@ criteria, and sample references before printing the report:
 
 ```sh
 python examples/smoke_sample.py
+python examples/smoke_github.py --summary
 ```
 
 The server must already be running with the selected provider configured. This command has no
 mock mode and exits unsuccessfully on an API error; it never fills in findings.
 Use `--base-url` for a different backend address and `--timeout` for a longer wait
 (default 600 seconds accommodates the three sample criteria on slower local hardware).
+Both commands verify health, browser CORS preflight, the invalid-request fixture,
+the actual report schema, criterion ordering, provenance, traceable references and
+mandatory human review. `--summary` prints only counts; omit it for the report.
+Use `--origin` when the configured frontend origin differs from localhost:3000.
+Neither command retries or substitutes mocked results. The GitHub client verifies
+reference scope/shape; authoritative snapshot grounding remains server-side.
 
 All providers implement `CriterionAIClient.assess`. Credentials are
 server-only, excluded from settings serialization and repr. No repository URL,
