@@ -42,6 +42,15 @@ curl http://127.0.0.1:8000/health
 not evidence/AI provider readiness. Interactive docs are at `/docs`; the OpenAPI
 schema is at `/openapi.json`.
 
+CI runs the same Pytest, Ruff lint, Ruff formatting and whitespace checks on pull
+requests targeting `staging`/`main` and pushes to either branch. The matrix covers
+Python 3.12 and 3.14 on Linux and Windows, uses read-only repository permissions,
+and receives no provider secrets. Tests isolate provider settings and block
+unmocked upstream HTTP; loopback HTTP remains available for executable API tests.
+Any failed step fails its job. Maintainers must select these checks as required in
+GitHub branch protection/rulesets if merges must be blocked; workflow configuration
+alone cannot enforce that repository policy.
+
 ### Frontend CORS and safe failures
 
 `VERICOMMIT_CORS_ORIGINS` is a JSON array of exact frontend origins, defaulting to
