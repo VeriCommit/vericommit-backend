@@ -43,8 +43,21 @@ class Settings(BaseSettings):
         repr=False,
     )
     groq_model: str | None = Field(default=None, min_length=1)
+    github_token: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VERICOMMIT_GITHUB_TOKEN", "GITHUB_TOKEN"),
+        exclude=True,
+        repr=False,
+    )
+    github_timeout_seconds: float = Field(default=10, gt=0, le=30)
+    github_total_timeout_seconds: float = Field(default=60, gt=0, le=120)
+    github_page_size: int = Field(default=5, ge=1, le=20)
+    github_max_pages: int = Field(default=2, ge=1, le=3)
+    github_max_requests: int = Field(default=25, ge=1, le=100)
 
-    @field_validator("openai_api_key", "groq_api_key", "groq_model", mode="before")
+    @field_validator(
+        "openai_api_key", "groq_api_key", "groq_model", "github_token", mode="before"
+    )
     @classmethod
     def empty_key_is_unconfigured(cls, value):
         return None if isinstance(value, str) and not value.strip() else value

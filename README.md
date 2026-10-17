@@ -46,8 +46,8 @@ schema is at `/openapi.json`.
 
 `src/vericommit_backend/schemas.py` models the JSON request, response, and error
 shapes in `docs/API_CONTRACT.md`. The endpoint reuses these models unchanged.
-The sample provider and configured OpenAI evaluator are implemented. No live GitHub
-retrieval or funding-agreement storage is implemented.
+Sample and public GitHub evidence providers are implemented, with configurable
+Ollama, Groq and OpenAI evaluators. Funding-agreement storage is not implemented.
 `repository_url` remains required and validated as a GitHub repository URL for
 both `github` and `sample`; sample mode
 does not imply live retrieval. Model validation cannot establish that an evidence
@@ -196,8 +196,48 @@ assessment; retrieval failures never become empty successful retrievals.
 AI errors, invalid output, refusal, truncation and grounding rejection return
 `EVALUATION_FAILED`/502; AI timeouts return the same code with 504. Invalid credentials
 are provider failures, not successful evaluations. Missing AI configuration retains
-the explicit error above. GitHub mode returns `EVIDENCE_RETRIEVAL_FAILED`/502 and
-never uses sample fallback. Error responses contain no provider details or excerpts.
+the explicit error above. GitHub retrieval failures never use sample fallback.
+Error responses contain no provider details or excerpts.
+
+### Public GitHub evidence (BE-06)
+
+Set `evidence_source` to `github` with an approved `https://github.com/owner/repo`
+URL. For example, submit `examples/github_evaluation.json` to the same endpoint.
+This retrieves live evidence and invokes the selected real AI provider; `sample`
+continues to use only the local synthetic fixture.
+
+Public repositories work without a token, subject to GitHub rate limits. Optional
+`VERICOMMIT_GITHUB_TOKEN` (or `GITHUB_TOKEN`) is server-only; put it in your ignored
+`.env` or environment. Private/internal repositories are outside this MVP scope,
+even when a token could access them.
+
+Retrieval covers repository metadata, recent default-branch commits, pull requests
+in all states, releases, and checks/workflow runs for the newest retrieved commit.
+Up to three commit details and two PR file lists supply changed-file metadata.
+Patch fields returned by GitHub are discarded; raw files and full source files are
+not downloaded. Reported check conclusions are not tests executed or independently
+verified by VeriCommit.
+
+Bounds: `VERICOMMIT_GITHUB_TIMEOUT_SECONDS=10` per request (maximum 30),
+`VERICOMMIT_GITHUB_TOTAL_TIMEOUT_SECONDS=60` overall (maximum 120),
+`VERICOMMIT_GITHUB_PAGE_SIZE=5` (maximum 20), `VERICOMMIT_GITHUB_MAX_PAGES=2`
+(maximum 3), and `VERICOMMIT_GITHUB_MAX_REQUESTS=25` (maximum 100).
+Each activity list is capped at five records; changed-file lists at 20 files.
+Responses are capped at 1 MB each / 4 MB total; evidence content at 3,000 characters
+per record / 30,000 total, and titles at 300 characters. Scope and truncation appear
+in report limitations. Metadata-only or empty successful retrieval is not a failure.
+
+Only constructed `https://api.github.com/repos/...` endpoints are requested.
+Redirects, upstream pagination URLs, content URLs and external check detail URLs
+are never fetched; local proxy environment settings are disabled. Links in reports
+come from GitHub response fields and are restricted to the requested repository.
+No automatic retries occur. Any actual HTTP/network/malformed-response failure
+stops evaluation rather than returning a misleading partial success.
+
+Missing/inaccessible repositories return `REPOSITORY_ACCESS_DENIED`/403. Rate limits,
+other HTTP failures and malformed evidence return `EVIDENCE_RETRIEVAL_FAILED`/502;
+retrieval timeouts use that code with 504. No tokens, upstream bodies or evidence
+text are logged or included in public errors.
 
 Server-side evaluation failure logs identify the component, exception category,
 upstream HTTP status and allowlisted provider error code/type, with static troubleshooting
@@ -228,8 +268,7 @@ validation failures use `INVALID_REPOSITORY_URL`, including alongside generic
 field errors; other request validation failures use `INVALID_REQUEST`. Validation
 failures never invoke `evaluate`. Responses do not echo submitted values or
 framework validation details. OpenAPI documents HTTP 400 instead of FastAPI's
-default 422. GitHub-specific transport handling and full BE-10 security safeguards
-remain future work.
+default 422. Broader BE-10 safeguards remain future work.
 
 ## Internal evidence
 
@@ -321,7 +360,7 @@ D7's distinction between insufficient evidence and retrieval/evaluation failures
 No additional public error or provenance fields are approved. The current handlers
 cover validation, missing configuration, evidence retrieval failure, AI failure,
 grounding rejection and AI timeouts. BE-10 owns remaining transport/security
-safeguards, including future live GitHub access handling.
+safeguards beyond the bounded public GitHub provider.
 The public MVP contract is finalized at the policy level. Synchronous execution,
 ID uniqueness, criterion/result correlation, grounded AI output and report assembly
 are implemented by the evaluation services and tested with mocked AI responses.

@@ -257,11 +257,14 @@ def test_empty_successful_retrieval_can_return_honest_insufficient_report(
     assert "0 supported" in report.overall_summary
 
 
-def test_github_mode_is_explicitly_unsupported_without_sample_fallback(ai_request):
+def test_github_retrieval_failure_has_no_sample_fallback(ai_request):
     ai_request.evidence_source = "github"
     ai = AsyncMock(spec=CriterionAIClient)
     app = create_app(Settings(_env_file=None))
     app.dependency_overrides[get_ai_client] = lambda: ai
+    provider = AsyncMock(spec=EvidenceProvider)
+    provider.retrieve.side_effect = EvidenceProviderError("private upstream failure")
+    app.dependency_overrides[get_evidence_provider] = lambda: provider
     with TestClient(app) as client:
         response = client.post(
             "/api/v1/evaluations", json=ai_request.model_dump(mode="json")

@@ -98,7 +98,7 @@ def test_default_service_never_fabricates_a_success(application, payloads, sourc
     assert_error(
         response,
         502,
-        "EVALUATION_FAILED" if source == "sample" else "EVIDENCE_RETRIEVAL_FAILED",
+        "EVALUATION_FAILED",
     )
     if source == "sample":
         assert response.json()["error"]["message"] == (

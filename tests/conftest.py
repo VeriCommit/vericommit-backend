@@ -19,6 +19,8 @@ def isolate_provider_environment(monkeypatch):
         "VERICOMMIT_GROQ_API_KEY",
         "GROQ_API_KEY",
         "VERICOMMIT_GROQ_MODEL",
+        "VERICOMMIT_GITHUB_TOKEN",
+        "GITHUB_TOKEN",
     ):
         monkeypatch.delenv(name, raising=False)
 

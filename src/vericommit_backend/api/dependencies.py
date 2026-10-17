@@ -8,23 +8,28 @@ from fastapi import Depends, Request
 from openai import AsyncOpenAI
 
 from vericommit_backend.config import Settings
-from vericommit_backend.evidence.providers import EvidenceProvider
+from vericommit_backend.evidence.providers import EvidenceProvider, EvidenceSourceRouter
 from vericommit_backend.services.ai import CriterionAIClient, OpenAICriterionClient
 from vericommit_backend.services.evaluation import (
     AIEvaluationService,
     EvaluationService,
     UnconfiguredEvaluationService,
 )
+from vericommit_backend.services.github_evidence import GitHubEvidenceProvider
 from vericommit_backend.services.ollama import OllamaCriterionClient
 from vericommit_backend.services.sample_evidence import SampleEvidenceProvider
 
 
-def get_evidence_provider() -> EvidenceProvider:
-    return SampleEvidenceProvider()
-
-
 def get_settings(request: Request) -> Settings:
     return request.app.state.settings
+
+
+def get_evidence_provider(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> EvidenceProvider:
+    return EvidenceSourceRouter(
+        SampleEvidenceProvider(), GitHubEvidenceProvider(settings)
+    )
 
 
 async def get_ai_client(

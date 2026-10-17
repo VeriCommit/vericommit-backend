@@ -1,0 +1,12 @@
+{
+  "project_name": "Public GitHub repository review",
+  "repository_url": "https://github.com/octocat/Hello-World",
+  "milestone": {
+    "title": "Document README changes",
+    "description": "Assess only the supplied bounded public GitHub activity, not executed functionality.",
+    "acceptance_criteria": [
+      "Repository change descriptions or changed-file metadata indicate README updates."
+    ]
+  },
+  "evidence_source": "github"
+}

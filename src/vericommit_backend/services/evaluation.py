@@ -5,10 +5,7 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
-from vericommit_backend.evidence.providers import (
-    EvidenceProvider,
-    UnsupportedEvidenceSourceError,
-)
+from vericommit_backend.evidence.providers import EvidenceProvider
 from vericommit_backend.schemas import EvaluationRequest, EvaluationResponse
 from vericommit_backend.services.ai import (
     AIEvaluationError,
@@ -37,8 +34,6 @@ class UnconfiguredEvaluationService:
 
     async def evaluate(self, request: EvaluationRequest) -> EvaluationResponse:
         # Never turn missing provider integrations into fabricated findings.
-        if request.evidence_source == "github":
-            raise UnsupportedEvidenceSourceError("GitHub retrieval is not implemented.")
         raise EvaluationNotConfiguredError
 
 

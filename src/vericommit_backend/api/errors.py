@@ -6,7 +6,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
-from vericommit_backend.evidence.providers import EvidenceProviderError
+from vericommit_backend.evidence.providers import (
+    EvidenceProviderError,
+    EvidenceRateLimitError,
+    EvidenceTimeoutError,
+    RepositoryAccessDeniedError,
+)
 from vericommit_backend.schemas import ErrorDetail, ErrorResponse
 from vericommit_backend.services.ai import AIEvaluationError, AITimeoutError
 from vericommit_backend.services.evaluation import EvaluationNotConfiguredError
@@ -76,8 +81,16 @@ async def ai_evaluation_error_handler(
 async def evidence_provider_error_handler(
     request: Request, exc: EvidenceProviderError
 ) -> JSONResponse:
+    if isinstance(exc, RepositoryAccessDeniedError):
+        return error_response(
+            403,
+            "REPOSITORY_ACCESS_DENIED",
+            "The public repository or required evidence is unavailable or access is denied.",
+        )
     return error_response(
-        502,
+        504 if isinstance(exc, EvidenceTimeoutError) else 502,
         "EVIDENCE_RETRIEVAL_FAILED",
-        "Required evidence could not be retrieved. GitHub mode is not implemented; no sample fallback was used.",
+        "GitHub rate limit prevented evidence retrieval. Retry after the limit resets; no sample fallback was used."
+        if isinstance(exc, EvidenceRateLimitError)
+        else "Required evidence could not be retrieved; no sample fallback was used.",
     )
